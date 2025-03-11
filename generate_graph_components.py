@@ -1,14 +1,4 @@
-# Supongamos que tenemos las siguientes listas de entrada:
-pacientes = ['Paciente1', 'Paciente2']
-consultas = ['ConsultaA', 'ConsultaB']  # Se asume que deben seguir un orden (p.ej., ConsultaA antes que ConsultaB)
-horas = ['09:00', '10:00']
-medicos = ['MedicoX', 'MedicoY']
-
-# Para el criterio de orden, definimos un orden de consultas:
-orden_consultas = {'ConsultaA': 1, 'ConsultaB': 2}
-
-import random
-from typing import List, Dict, Tuple, Set
+from typing import List, Dict, Tuple
 from collections import defaultdict
 
 # =============================================
