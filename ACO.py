@@ -1,11 +1,13 @@
 import matplotlib.pyplot as plt  # Asegúrate de tener matplotlib instalado
 from Graph import Graph
 from Ant import Ant
-
+from typing import Dict
 class ACO:
-    def __init__(self, graph: Graph, n_ants: int = 10, iterations: int = 100,
+    def __init__(self, graph: Graph,  consultas_orden: Dict[str, int] , consultas_duration: Dict[str,int],n_ants: int = 10, iterations: int = 100,
                  alpha: float = 1.0, beta: float = 3.0, rho: float = 0.1, Q: float = 1.0):
         self.graph = graph
+        self.consultas_orden = consultas_orden
+        self.consultas_duration = consultas_duration
         self.n_ants = n_ants
         self.iterations = iterations
         self.alpha = alpha
@@ -17,8 +19,7 @@ class ACO:
 
     def run(self):
         for _ in range(self.iterations):
-            ants = [Ant(self.graph, self.alpha, self.beta) for _ in range(self.n_ants)]
-            
+            ants = [Ant(self.graph, self.consultas_orden, self.consultas_duration,self.alpha, self.beta) for _ in range(self.n_ants)]
             for ant in ants:
                 while True:
                     next_node = ant.choose_next_node()
@@ -26,7 +27,7 @@ class ACO:
                         break
                     ant.move(next_node)
                 if ant.valid_solution:
-                    ant.total_cost = self.graph.calcular_tiempo_espera(ant.visited)
+                    ant.total_cost = ant.calcular_coste(ant.visited)
                     if ant.total_cost < self.best_cost:
                         self.best_cost = ant.total_cost
                         self.best_solution = ant.visited.copy()
