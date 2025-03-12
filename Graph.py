@@ -4,8 +4,7 @@ from Ant import Ant
 import datetime
 
 class Graph:
-    def __init__(self, nodes: List[Tuple], edges: Dict[Tuple, List[Tuple]],pacientes: List[str] = [],initial_pheromone: float = 1.0):
-        self.pacientes = pacientes
+    def __init__(self, nodes: List[Tuple], edges: Dict[Tuple, List[Tuple]],initial_pheromone: float = 1.0):
         self.nodes = nodes
         self.edges = edges
         self.pheromone = defaultdict(dict)

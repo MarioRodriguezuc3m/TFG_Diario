@@ -8,14 +8,15 @@ if TYPE_CHECKING:
     from Graph import Graph  # Se usa solo para type hint
 
 class Ant:
-    def __init__(self, graph: "Graph", consultas_orden: Dict[str, int], consultas_duration: Dict[str, int],alpha: float = 1.0, beta: float = 3.0):
+    def __init__(self, graph: "Graph", consultas_orden: Dict[str, int], consultas_duration: Dict[str, int],pacientes: List[str],alpha: float = 1.0, beta: float = 3.0):
         self.graph = graph
         self.alpha = alpha
         self.beta = beta
         self.visited: List[Tuple] = []
         self.consultas_orden= consultas_orden
         self.consultas_duration = consultas_duration
-        self.pacientes_progreso = defaultdict(dict,{paciente: {} for paciente in self.graph.pacientes})
+        self.pacientes = pacientes
+        self.pacientes_progreso = defaultdict(dict,{paciente: {} for paciente in self.pacientes})
         self.current_node: Tuple = None
         self.total_cost: float = 0.0
         self.valid_solution = False
@@ -121,12 +122,6 @@ class Ant:
             self._consultas_en_orden_correcto(consultas) 
             for consultas in self.pacientes_progreso.values()
         )
-
-    def _get_current_time(self):
-        if not self.visited:
-            return 0
-        last_time_str = self.visited[-1][2]
-        return datetime.datetime.strptime(last_time_str, "%H:%M").time()
     
     def calcular_coste(self, asignaciones: List[Tuple]) -> float:
         tiempos_pacientes = defaultdict(list)
@@ -159,13 +154,13 @@ class Ant:
                 
                 # Conflicto de médico
                 if a['medico'] == b['medico'] and (a['inicio'] < b['fin'] and b['inicio'] < a['fin']):
-                    print(f"Conflicto de médico: {a} y {b}")
-                    penalty += 1000
+                    # print(f"Conflicto de médico: {a} y {b}")
+                    penalty += 5000
                     
                 # Conflicto de tipo de consulta
                 if a['consulta'] == b['consulta'] and (a['inicio'] < b['fin'] and b['inicio'] < a['fin']):
-                    print(f"Conflicto de consulta: {a} y {b}")
-                    penalty += 1000
+                    # print(f"Conflicto de consulta: {a} y {b}")
+                    penalty += 5000
 
         # Verificación de orden y tiempo entre consultas del mismo paciente
         for paciente, tiempos in tiempos_pacientes.items():
@@ -175,8 +170,8 @@ class Ant:
             for consulta_data in tiempos_ordenados:
                 orden_actual = consulta_data[0]  # Obtener el orden de la tupla (orden, inicio, fin)
                 if orden_actual != orden_esperado:
-                    print(f'Consulta fuera de orden: {paciente}, orden esperado {orden_esperado}, orden actual {orden_actual}')
-                    penalty += 1000
+                    # print(f'Consulta fuera de orden: {paciente}, orden esperado {orden_esperado}, orden actual {orden_actual}')
+                    penalty += 5000
                     break
                 orden_esperado += 1
             
@@ -187,7 +182,7 @@ class Ant:
                 
                 # Si la consulta actual empieza ANTES de que termine la anterior
                 if consulta_actual[1] < consulta_prev[2]:
-                    print(f'tiempo entre consultas insuficiente: {paciente,consulta_prev,consulta_actual}')
+                    # print(f'tiempo entre consultas insuficiente: {paciente,consulta_prev,consulta_actual}')
                     penalty += 10000  # Penalización fuerte
                     break  # Dejamos de verificar este paciente
                 else:
