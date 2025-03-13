@@ -2,12 +2,14 @@ import matplotlib.pyplot as plt  # Asegúrate de tener matplotlib instalado
 from Graph import Graph
 from Ant import Ant
 from typing import Dict,List
+import time  # Importa el módulo time
+
 class ACO:
-    def __init__(self, graph: Graph,  consultas_orden: Dict[str, int] , consultas_duration: Dict[str,int],pacientes:List[str],n_ants: int = 10, iterations: int = 100,
+    def __init__(self, graph: Graph,  fases_orden: Dict[str, int], fases_duration: Dict[str, int], pacientes: List[str], n_ants: int = 10, iterations: int = 100,
                  alpha: float = 1.0, beta: float = 3.0, rho: float = 0.1, Q: float = 1.0):
         self.graph = graph
-        self.consultas_orden = consultas_orden
-        self.consultas_duration = consultas_duration
+        self.fases_orden = fases_orden  
+        self.fases_duration = fases_duration  
         self.pacientes = pacientes
         self.n_ants = n_ants
         self.iterations = iterations
@@ -18,10 +20,13 @@ class ACO:
         self.best_solution = None
         self.total_costs = []
         self.best_cost = float('inf')
+        self.execution_time = None
 
     def run(self):
+        start_time = time.time()  # Marca el tiempo de inicio
+        
         for _ in range(self.iterations):
-            ants = [Ant(self.graph, self.consultas_orden, self.consultas_duration, self.pacientes,self.alpha, self.beta) for _ in range(self.n_ants)]
+            ants = [Ant(self.graph, self.fases_orden, self.fases_duration, self.pacientes, self.alpha, self.beta) for _ in range(self.n_ants)]
             for ant in ants:
                 while True:
                     next_node = ant.choose_next_node()
@@ -38,6 +43,9 @@ class ACO:
             self.total_costs.append(self.best_cost)
             self.graph.update_pheromone(ants, self.rho, self.Q)
         
+        end_time = time.time()  # Marca el tiempo de fin
+        self.execution_time = end_time - start_time  # Calcula el tiempo total de ejecución
+
         return self.best_solution, self.best_cost
 
     def plot_convergence(self):
@@ -46,3 +54,8 @@ class ACO:
         plt.ylabel('Mejor Distancia')
         plt.title('Convergencia del ACO')
         plt.show()
+
+    def get_execution_time(self):
+        """Devuelve el tiempo de ejecución total en segundos."""
+        return self.execution_time
+
