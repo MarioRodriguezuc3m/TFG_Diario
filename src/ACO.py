@@ -3,6 +3,7 @@ from Graph import Graph
 from Ant import Ant
 from typing import Dict,List
 import time  # Importa el módulo time
+import os
 
 class ACO:
     def __init__(self, graph: Graph,  fases_orden: Dict[str, int], fases_duration: Dict[str, int], pacientes: List[str], n_ants: int = 10, iterations: int = 100,
@@ -48,12 +49,19 @@ class ACO:
 
         return self.best_solution, self.best_cost
 
+
     def plot_convergence(self):
         plt.plot(self.total_costs)
         plt.xlabel('Iteración')
         plt.ylabel('Mejor Distancia')
         plt.title('Convergencia del ACO')
-        plt.show()
+        
+        # Crear directorio si no existe
+        os.makedirs("/app/plots", exist_ok=True)
+        
+        # Guardar la imagen
+        plt.savefig("/app/plots/convergencia.png")
+        plt.close()  # Limpiar la figura
 
     def get_execution_time(self):
         """Devuelve el tiempo de ejecución total en segundos."""

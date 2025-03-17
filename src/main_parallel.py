@@ -1,4 +1,4 @@
-from ACO import ACO
+from ACO_par import ACO_parallel
 from Graph import Graph
 from generate_graph_components import generar_nodos, generar_aristas
 
@@ -21,7 +21,7 @@ if __name__ == "__main__":
   graph = Graph(nodos, aristas)
 
   # Configurar y ejecutar ACO
-  aco = ACO(graph, orden_fases, fases_duration, pacientes, n_ants=15, iterations=100, alpha=1.0, beta=3.0, rho=0.1, Q=1.0)
+  aco = ACO_parallel(graph, orden_fases, fases_duration, pacientes, n_ants=10, iterations=10, alpha=1.0, beta=3.0, rho=0.1, Q=1.0, num_parallel_ants=5)
   best_solution, best_cost = aco.run()
   aco.plot_convergence()
 
