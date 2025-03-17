@@ -21,7 +21,7 @@ if __name__ == "__main__":
   graph = Graph(nodos, aristas)
 
   # Configurar y ejecutar ACO
-  aco = ACO(graph, orden_fases, fases_duration, pacientes, n_ants=10, iterations=500, alpha=1.0, beta=3.0, rho=0.1, Q=1.0)
+  aco = ACO(graph, orden_fases, fases_duration, pacientes,medicos,consultas,horas, n_ants=10, iterations=500, alpha=1.0, beta=3.0, rho=0.02, Q=5000.0)
   best_solution, best_cost = aco.run()
   aco.plot_convergence()
 
