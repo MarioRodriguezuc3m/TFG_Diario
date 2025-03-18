@@ -63,7 +63,7 @@ class ACO:
                 improved_solution = self.local_search(iteration_best_solution)
                 improved_cost = self.calcular_coste(improved_solution)
                 
-                # Actualizar la mejor global si hay mejora
+                # Actualizar la mejor solucion global si hay mejora
                 if improved_cost < self.best_cost:
                     self.best_cost = improved_cost
                     self.best_solution = improved_solution.copy()
@@ -78,16 +78,27 @@ class ACO:
         return self.best_solution, self.best_cost
 
     def calcular_coste(self, asignaciones: List[Tuple]) -> float:
+        """
+        Calcula el coste total (penalización) de una asignación de horarios según restricciones:
+        1. Solapamientos de médicos/consultas
+        2. Orden correcto de fases por paciente
+        3. Tiempos entre fases consecutivas
+        """
+        # Diccionario para almacenar tiempos de cada paciente
         tiempos_pacientes = defaultdict(list)
         penalty = 0
-        fases_activas = []
+        fases_activas = []  # Almacena todas las fases programadas con sus detalles
 
+        # Procesar todas las asignaciones para extraer tiempos y metadatos
         for asignacion in asignaciones:
             paciente, consulta, hora_str, medico, fase = asignacion
+            
+            # Convertir hora de string a minutos
             hora_inicio = datetime.datetime.strptime(hora_str, "%H:%M").time()
             inicio_min = hora_inicio.hour * 60 + hora_inicio.minute
-            fin_min = inicio_min + self.fases_duration[fase]
+            fin_min = inicio_min + self.fases_duration[fase]  # Calcular hora final
             
+            # Registrar fase en lista global
             fases_activas.append({
                 'paciente': paciente,
                 'consulta': consulta,
@@ -95,39 +106,55 @@ class ACO:
                 'inicio': inicio_min,
                 'fin': fin_min,
                 'medico': medico,
-                'orden': self.fases_orden[fase]
+                'orden': self.fases_orden[fase]  # Orden secuencial de la fase
             })
-            tiempos_pacientes[paciente].append((self.fases_orden[fase], inicio_min, fin_min))
+            
+            # Almacenar tiempos por paciente para validaciones posteriores
+            tiempos_pacientes[paciente].append((
+                self.fases_orden[fase],  # Orden de fase
+                inicio_min,              # Minuto de inicio
+                fin_min                  # Minuto de finalización
+            ))
 
+        # Verificar solapamientos de recursos (médicos y consultas)
         for i in range(len(fases_activas)):
             for j in range(i + 1, len(fases_activas)):
                 a = fases_activas[i]
                 b = fases_activas[j]
                 
+                # Penalizar si mismo médico tiene solapamiento temporal
                 if a['medico'] == b['medico'] and (a['inicio'] < b['fin'] and b['inicio'] < a['fin']):
-                    penalty += 1000
+                    penalty += 1000  # Penalización alta por conflicto de médico
                     
+                # Penalizar si misma consulta tiene solapamiento temporal
                 if a['consulta'] == b['consulta'] and (a['inicio'] < b['fin'] and b['inicio'] < a['fin']):
-                    penalty += 1000
+                    penalty += 1000  # Penalización alta por conflicto de consulta
 
+        # Validar secuencia de fases por paciente
         for paciente, tiempos in tiempos_pacientes.items():
+            # Ordenar fases por su orden secuencial esperado
             tiempos_ordenados = sorted(tiempos, key=lambda x: x[0])  
             orden_esperado = 1
+            
+            # Verificar orden correcto de fases (1, 2, 3...)
             for fase_data in tiempos_ordenados:
                 orden_actual = fase_data[0]
                 if orden_actual != orden_esperado:
-                    penalty += 1000
-                    break
+                    penalty += 2000  # Penalización alta por orden incorrecto
+                    break  # Solo contabilizar una vez por paciente
                 orden_esperado += 1
             
+            # Verificar continuidad temporal entre fases del mismo paciente
             for i in range(1, len(tiempos_ordenados)):
                 fase_prev = tiempos_ordenados[i-1]
                 fase_actual = tiempos_ordenados[i]
                 
+                # Penalizar si hay solapamiento entre fases consecutivas
                 if fase_actual[1] < fase_prev[2]:
-                    penalty += 2000  
+                    penalty += 2000  # Penalización alta por solapamiento interno
                     break
                 else:
+                    # Añadir tiempo muerto entre fases como penalización menor
                     penalty += fase_actual[1] - fase_prev[2]
 
         return penalty
