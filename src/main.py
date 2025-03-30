@@ -5,13 +5,13 @@ from generate_graph_components import generar_nodos, generar_aristas
 # Ejemplo de uso ---------------------------------------------------------------
 if __name__ == "__main__":
   # Datos de entrada
-  pacientes = ['Paciente1', 'Paciente2','Paciente3','Paciente4','Paciente5']
-  consultas = ['ConsultaA', 'ConsultaB','ConsultaC','ConsultaD']
-  horas = ['09:00', '10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00']
+  pacientes = ['Paciente1', 'Paciente2','Paciente3','Paciente4']
+  consultas = ['ConsultaA', 'ConsultaB','ConsultaC']
+  horas = ['09:00', '10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00']
   medicos = ['MedicoX', 'MedicoY','MedicoZ']
-  fases = ['Fase1', 'Fase2','Fase3','Fase4']
-  orden_fases= {'Fase1': 1, 'Fase2': 2, 'Fase3': 3, 'Fase4': 4}
-  fases_duration = {'Fase1': 60, 'Fase2': 60, 'Fase3': 60, 'Fase4': 60}
+  fases = ['Fase1', 'Fase2','Fase3']
+  orden_fases= {'Fase1': 1, 'Fase2': 2, 'Fase3': 3}
+  fases_duration = {'Fase1': 60, 'Fase2': 60, 'Fase3': 60}
 
   # Generar nodos y aristas
   nodos = generar_nodos(pacientes, consultas, horas, medicos,fases)
