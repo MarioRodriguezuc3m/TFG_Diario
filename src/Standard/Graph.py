@@ -1,6 +1,6 @@
 from typing import List, Dict, Tuple, Set
 from collections import defaultdict
-from Ant import Ant
+from utils.Ant import Ant
 
 class Graph:
     def __init__(self, nodes: List[Tuple], edges: Dict[Tuple, List[Tuple]], initial_pheromone: float = 1.0):

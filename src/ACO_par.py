@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt  # Asegúrate de tener matplotlib instalado
-from Graph import Graph
-from Ant import Ant
+from Standard.Graph import Graph
+from utils.Ant import Ant
 from typing import Dict,List
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time

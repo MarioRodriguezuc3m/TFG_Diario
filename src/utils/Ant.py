@@ -1,11 +1,11 @@
 import random
-from generate_graph_components import *
+from utils.generate_graph_components import *
 from typing import List, Dict, Tuple, Set
 from collections import defaultdict
 import datetime
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from Graph import Graph  # Se usa solo para type hint
+    from Standard.Graph import Graph  # Se usa solo para type hint
 
 class Ant:
     def __init__(self, graph: "Graph", fases_orden: Dict[str, int], fases_duration: Dict[str, int], pacientes: List[str], alpha: float = 1.0, beta: float = 1.0):

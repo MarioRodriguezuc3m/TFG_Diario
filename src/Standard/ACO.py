@@ -1,11 +1,11 @@
-import matplotlib.pyplot as plt  # Asegúrate de tener matplotlib instalado
-from Graph import Graph
-from Ant import Ant
+import matplotlib.pyplot as plt 
+from Standard.Graph import Graph
+from utils.Ant import Ant
 from typing import Dict,List,Tuple
 from collections import defaultdict
 import datetime
 import random
-import time  # Importa el módulo time
+import time 
 import os
 
 class ACO:
