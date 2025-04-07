@@ -24,9 +24,9 @@ def main():
     graph = MinMaxGraph(
         nodes=nodos,
         edges=aristas,
-        pheromone_max=2000.0,
+        pheromone_max=65.0,
         pheromone_min=1.0,
-        initial_pheromone=2000.0
+        initial_pheromone=34.0
     )
 
     # Configurar algoritmo MinMaxACO
@@ -38,12 +38,12 @@ def main():
         medicos=medicos,
         consultas=consultas,
         horas=horas,
-        n_ants=15,
-        iterations=1000,
+        n_ants=50,
+        iterations=500,
         alpha=1.0,
         beta=3.0,
-        rho=0.02,
-        Q=5000.0
+        rho=0.1,
+        Q=286.0
     )
 
     # Ejecutar optimización

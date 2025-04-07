@@ -18,10 +18,10 @@ if __name__ == "__main__":
   aristas = generar_aristas(nodos,orden_fases)
 
   # Crear el grafo
-  graph = Graph(nodos, aristas)
+  graph = Graph(nodos, aristas, initial_pheromone=125.0)
 
   # Configurar y ejecutar ACO
-  aco = ACO(graph, orden_fases, fases_duration, pacientes,medicos,consultas,horas, n_ants=15, iterations=1000, alpha=1.0, beta=3.0, rho=0.02, Q=5000.0)
+  aco = ACO(graph, orden_fases, fases_duration, pacientes,medicos,consultas,horas, n_ants=25, iterations=500, alpha=1.0, beta=3.0, rho=0.05, Q=100000)
   best_solution, best_cost = aco.run()
   aco.plot_convergence()
 

@@ -140,7 +140,7 @@ class ACO:
             for fase_data in tiempos_ordenados:
                 orden_actual = fase_data[0]
                 if orden_actual != orden_esperado:
-                    penalty += 2000  # Penalización alta por orden incorrecto
+                    penalty += 5000  # Penalización alta por orden incorrecto
                     break  # Solo contabilizar una vez por paciente
                 orden_esperado += 1
             
@@ -151,7 +151,7 @@ class ACO:
                 
                 # Penalizar si hay solapamiento entre fases consecutivas
                 if fase_actual[1] < fase_prev[2]:
-                    penalty += 2000  # Penalización alta por solapamiento interno
+                    penalty += 5000  # Penalización alta por solapamiento interno
                     break
                 else:
                     # Añadir tiempo muerto entre fases como penalización menor
