@@ -7,6 +7,7 @@ import datetime
 import random
 import time 
 import os
+import math
 
 class ACO:
     def __init__(self, graph: Graph,  fases_orden: Dict[str, int], fases_duration: Dict[str, int], pacientes: List[str],medicos: List[str],consultas: List[str],horas: List[str], n_ants: int = 10, iterations: int = 100,
@@ -79,10 +80,10 @@ class ACO:
 
     def calcular_coste(self, asignaciones: List[Tuple]) -> float:
         """
-        Calcula el coste total (penalización) de una asignación de horarios según restricciones:
-        1. Solapamientos de médicos/consultas
-        2. Orden correcto de fases por paciente
-        3. Tiempos entre fases consecutivas
+        Calcula el coste total (penalización) de una asignación de horarios con penalizaciones proporcionales:
+        1. Solapamientos de médicos/consultas: proporcional al tiempo solapado
+        2. Orden correcto de fases por paciente: penalización fija pero severa
+        3. Tiempos entre fases consecutivas: proporcional al tiempo de espera
         """
         # Diccionario para almacenar tiempos de cada paciente
         tiempos_pacientes = defaultdict(list)
@@ -122,40 +123,57 @@ class ACO:
                 a = fases_activas[i]
                 b = fases_activas[j]
                 
-                # Penalizar si mismo médico tiene solapamiento temporal
-                if a['medico'] == b['medico'] and (a['inicio'] < b['fin'] and b['inicio'] < a['fin']):
-                    penalty += 1000  # Penalización alta por conflicto de médico
+                # Calcular solapamiento temporal si existe
+                if a['inicio'] < b['fin'] and b['inicio'] < a['fin']:
+                    overlap_time = min(a['fin'], b['fin']) - max(a['inicio'], b['inicio'])
                     
-                # Penalizar si misma consulta tiene solapamiento temporal
-                if a['consulta'] == b['consulta'] and (a['inicio'] < b['fin'] and b['inicio'] < a['fin']):
-                    penalty += 1000  # Penalización alta por conflicto de consulta
+                    # Penalizar si mismo médico tiene solapamiento temporal - proporcional al tiempo solapado
+                    if a['medico'] == b['medico']:
+                        penalty += 2000 * overlap_time  # Base alta × tiempo solapado en minutos
+                    
+                    # Penalizar si misma consulta tiene solapamiento temporal - proporcional al tiempo solapado
+                    if a['consulta'] == b['consulta']:
+                        penalty += 2000 * overlap_time  # Base alta × tiempo solapado en minutos
 
         # Validar secuencia de fases por paciente
         for paciente, tiempos in tiempos_pacientes.items():
             # Ordenar fases por su orden secuencial esperado
-            tiempos_ordenados = sorted(tiempos, key=lambda x: x[0])  
+            tiempos_ordenados = sorted(tiempos, key=lambda x: x[0])
+            
+            # Verificar orden correcto de fases y calculando penalizaciones por espera
+            ultima_fase = None
             orden_esperado = 1
             
-            # Verificar orden correcto de fases (1, 2, 3...)
             for fase_data in tiempos_ordenados:
                 orden_actual = fase_data[0]
-                if orden_actual != orden_esperado:
-                    penalty += 5000  # Penalización alta por orden incorrecto
-                    break  # Solo contabilizar una vez por paciente
-                orden_esperado += 1
-            
-            # Verificar continuidad temporal entre fases del mismo paciente
-            for i in range(1, len(tiempos_ordenados)):
-                fase_prev = tiempos_ordenados[i-1]
-                fase_actual = tiempos_ordenados[i]
+                inicio_actual = fase_data[1]
+                fin_actual = fase_data[2]
                 
-                # Penalizar si hay solapamiento entre fases consecutivas
-                if fase_actual[1] < fase_prev[2]:
-                    penalty += 5000  # Penalización alta por solapamiento interno
-                    break
-                else:
-                    # Añadir tiempo muerto entre fases como penalización menor
-                    penalty += fase_actual[1] - fase_prev[2]
+                # Verificar orden correcto (esta es una restricción fuerte)
+                if orden_actual != orden_esperado:
+                    # Penalización severa por orden incorrecto
+                    penalty += 10000
+                    break  # Solo contabilizar una vez por paciente
+                
+                # Verificar continuidad temporal entre fases
+                if ultima_fase is not None:
+                    orden_prev, _, fin_prev = ultima_fase
+                    
+                    # Si hay solapamiento temporal entre fases del mismo paciente
+                    if inicio_actual < fin_prev:
+                        overlap = fin_prev - inicio_actual
+                        penalty += 5000 * overlap  # Penalización proporcional por solapamiento
+                    else:
+                        # Penalización menor por tiempo de espera excesivo
+                        tiempo_espera = inicio_actual - fin_prev
+                        # Penalizar más cuando el tiempo de espera es excesivo
+                        if tiempo_espera > 120:  # Más de 2 horas de espera
+                            penalty += tiempo_espera * 2  # Penalización creciente
+                        else:
+                            penalty += tiempo_espera  # Penalización leve
+                
+                ultima_fase = fase_data
+                orden_esperado += 1
 
         return penalty
     
@@ -250,10 +268,10 @@ class ACO:
             
             if is_phase:
                 # Cambiar hora para conflictos de fase
-                nueva_hora = self.generar_hora_aleatoria(self.horas, 60)
+                nueva_hora = self._generar_hora_respetando_duracion(self.horas, 60)
             else:
                 if random.random() < 0.5:  # 50% cambiar hora
-                    nueva_hora = self.generar_hora_aleatoria(self.horas, 60)
+                    nueva_hora = self._generar_hora_respetando_duracion(self.horas, 60)
                 else:  # 50% cambiar médico/consulta
                     # Obtener recursos ocupados en la hora original del conflicto
                     ocupados_medicos = {asig[3] for asig in solution if asig[2] == hora_str}
@@ -270,7 +288,7 @@ class ACO:
                         nueva_consulta = random.choice(consultas_disponibles)
             
             # Crear nueva asignación
-            new_asig = (paciente,nueva_consulta,nueva_hora,nuevo_medico,fase)
+            new_asig = (paciente, nueva_consulta, nueva_hora, nuevo_medico, fase)
             new_solution[idx] = new_asig
             
             new_cost = self.calcular_coste(new_solution)
@@ -280,23 +298,35 @@ class ACO:
         
         return best_solution
 
-    @staticmethod
-    def generar_hora_aleatoria(horas: List[str], intervalo: int) -> str:
-        # Convertir a objetos datetime y encontrar el rango
+    def _generar_hora_respetando_duracion(self, horas: List[str], duracion: int) -> str:
+        """
+        Generate a random time from available slots, respecting phase duration.
+        Ensures the phase fits within available hours.
+        """
+        # Convert to datetime objects and find the range
         formato = "%H:%M"
         tiempos = [datetime.datetime.strptime(h, formato) for h in horas]
         min_t = min(tiempos)
         max_t = max(tiempos)
         
-        # Generar todos los intervalos posibles
-        slots = []
-        current = min_t
-        while current <= max_t:
-            slots.append(current)
-            current += datetime.timedelta(minutes=intervalo)
+        # Convert times to minutes for easier calculation
+        min_mins = min_t.hour * 60 + min_t.minute
+        max_mins = max_t.hour * 60 + max_t.minute
         
-        # Seleccionar y formatear un slot aleatorio
-        return random.choice(slots).strftime(formato)
+        # Ensure the phase fits within the day
+        max_start_mins = max_mins - duracion
+        
+        if max_start_mins < min_mins:
+            # Not enough time in the day, return earliest time
+            return min_t.strftime(formato)
+        
+        # Generate a random start time that allows the phase to complete
+        start_mins = random.randint(min_mins, max_start_mins)
+        hours = start_mins // 60
+        minutes = start_mins % 60
+        
+        return f"{hours:02d}:{minutes:02d}"
+
     def plot_convergence(self):
         plt.plot(self.total_costs)
         plt.xlabel('Iteración')
