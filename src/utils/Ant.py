@@ -52,104 +52,78 @@ class Ant:
 
             return random.choices(candidate_list, weights=[p / total for p in probabilities], k=1)[0]
 
+
     def calcular_heuristica(self, node: Tuple) -> float:
         """
-        Calcula la heurística para un nodo candidato con un enfoque más sofisticado
-        que considera múltiples factores con pesos diferenciados.
+        Simplified heuristic calculation with better time efficiency.
         """
         paciente, consulta, hora, medico, fase = node
         
-        # Pesos para los diferentes factores
-        W_CONFLICTO = 4.0    # Importancia de evitar conflictos
-        W_TIEMPO = 2.0       # Importancia de la distribución temporal
+        # Base score
+        score = 10.0
         
-        # Inicializar puntuación base
-        score = 10.0  # Empezamos con valor positivo y aplicamos modificadores
+        # Fast time conversion - avoid datetime parsing
+        hora_parts = hora.split(':')
+        node_mins = int(hora_parts[0]) * 60 + int(hora_parts[1])
         
-        # 1. FACTOR DE TIEMPO: Verificar distribución temporal adecuada
+        # Process current node time comparison if not first node
         if self.current_node:
-            # Verificar tiempo adecuado entre fases consecutivas del mismo paciente
+            current_hora_parts = self.current_node[2].split(':')
+            current_mins = int(current_hora_parts[0]) * 60 + int(current_hora_parts[1])
+            duracion_actual = self.fases_duration[self.current_node[4]]
+            
+            # Time factor - simplified calculation
             if paciente == self.current_node[0]:
-                # Conversión de horas a minutos para comparación
-                hora_actual = datetime.datetime.strptime(self.current_node[2], "%H:%M")
-                hora_siguiente = datetime.datetime.strptime(hora, "%H:%M")
-                
-                # Minutos desde medianoche
-                min_actual = hora_actual.hour * 60 + hora_actual.minute
-                min_siguiente = hora_siguiente.hour * 60 + hora_siguiente.minute
-                
-                # Duración de la fase actual
-                duracion_actual = self.fases_duration[self.current_node[4]]
-                
-                # Verificar que la fase siguiente comience después de que termine la actual
-                if min_siguiente < min_actual + duracion_actual:
-                    score -= 10.0 * W_TIEMPO  # Penalización fuerte por solapamiento temporal
+                # Check if next phase starts after current one completes
+                if node_mins < current_mins + duracion_actual:
+                    score -= 20.0  # Strong penalty for time overlap
                 else:
-                    # Tiempo de espera entre fin de fase actual e inicio de la siguiente
-                    tiempo_espera = min_siguiente - (min_actual + duracion_actual)
-                    
-                    # Evaluar tiempo de espera
-                    if tiempo_espera <= 30:
-                        score += 5.0 * W_TIEMPO  # Bonificación por continuidad temporal óptima
-                    elif tiempo_espera <= 60:
-                        score += 3.0 * W_TIEMPO  # Bonificación por tiempo de espera razonable
-                    elif tiempo_espera > 180:  # Más de 3 horas
-                        score -= (tiempo_espera - 180) / 60.0 * W_TIEMPO  # Penalización gradual por espera excesiva
+                    # Optimize time gap evaluation
+                    tiempo_espera = node_mins - (current_mins + duracion_actual)
+                    if tiempo_espera <= 60:
+                        score += 10.0  # Optimal time continuity
+                    elif tiempo_espera <= 120:
+                        score += 6.0   # Reasonable wait time
+                    elif tiempo_espera > 120:  # More than 3 hours
+                        score -= min(10.0, (tiempo_espera - 180) / 60.0 * 2.0)  # Limited penalty
         
-        # 2. FACTOR DE CONFLICTOS: Verificar conflictos de recursos
-        conflicto_medico = False
-        conflicto_consulta = False
+        # Track conflicts with a single pass through visited nodes
+        # Using node time ranges to check for conflicts
+        node_end_mins = node_mins + self.fases_duration[fase]
         
-        for nodo_visitado in self.visited:
-            v_paciente, v_consulta, v_hora, v_medico, v_fase = nodo_visitado
+        # Counter for resource usage (simplified balancing)
+        medico_count = 0
+        consulta_count = 0
+        
+        for v_node in self.visited:
+            v_paciente, v_consulta, v_hora, v_medico, v_fase = v_node
             
-            # Convertir horas a minutos para comparación
-            hora_visitada = datetime.datetime.strptime(v_hora, "%H:%M")
-            hora_candidata = datetime.datetime.strptime(hora, "%H:%M")
+            # Fast time conversion
+            v_hora_parts = v_hora.split(':')
+            v_mins = int(v_hora_parts[0]) * 60 + int(v_hora_parts[1])
+            v_end_mins = v_mins + self.fases_duration[v_fase]
             
-            # Calcular rangos de tiempo
-            v_inicio = hora_visitada.hour * 60 + hora_visitada.minute
-            v_fin = v_inicio + self.fases_duration[v_fase]
-            c_inicio = hora_candidata.hour * 60 + hora_candidata.minute
-            c_fin = c_inicio + self.fases_duration[fase]
-            
-            # Verificar solapamiento temporal
-            if c_inicio < v_fin and v_inicio < c_fin:
-                # Penalizar conflictos de recursos
+            # Check for time overlap
+            if node_mins < v_end_mins and v_mins < node_end_mins:
+                # Resource conflicts
                 if v_medico == medico:
-                    conflicto_medico = True
+                    score -= 15.0  # Doctor conflict
                 if v_consulta == consulta:
-                    conflicto_consulta = True
+                    score -= 15.0  # Consultation room conflict
+            
+            # Count resource usage for balancing
+            if v_medico == medico:
+                medico_count += 1
+            if v_consulta == consulta:
+                consulta_count += 1
         
-        # Aplicar penalizaciones por conflictos
-        if conflicto_medico:
-            score -= 15.0 * W_CONFLICTO  # Penalización severa por conflicto de médico
-        if conflicto_consulta:
-            score -= 15.0 * W_CONFLICTO  # Penalización severa por conflicto de consulta
+        # Simple balancing boost based on current counts
+        if medico_count == 0:
+            score += 2.0  # Boost for unused doctor
+        if consulta_count == 0:
+            score += 2.0  # Boost for unused consultation room
         
-        # 3. FACTOR DE BALANCEO: Promover distribución equilibrada
-        # Contar cuántas veces ha aparecido cada médico y consulta
-        conteo_medicos = {}
-        conteo_consultas = {}
-        
-        for nodo in self.visited:
-            conteo_medicos[nodo[3]] = conteo_medicos.get(nodo[3], 0) + 1
-            conteo_consultas[nodo[1]] = conteo_consultas.get(nodo[1], 0) + 1
-        
-        # Bonificar recursos menos utilizados
-        medico_count = conteo_medicos.get(medico, 0)
-        consulta_count = conteo_consultas.get(consulta, 0)
-        
-        # Normalizar por el promedio
-        avg_medicos = sum(conteo_medicos.values()) / max(1, len(conteo_medicos))
-        avg_consultas = sum(conteo_consultas.values()) / max(1, len(conteo_consultas))
-        
-        if medico_count < avg_medicos:
-            score += 1.0  # Ligera bonificación por usar médicos menos cargados
-        if consulta_count < avg_consultas:
-            score += 1.0  # Ligera bonificación por usar consultas menos cargadas
-        
-        # Asegurar que la heurística sea positiva (evitar división por cero o valores negativos)
+        # Ensure positive heuristic
         return max(0.1, score)
 
     def move(self, node: Tuple):
