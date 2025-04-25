@@ -48,4 +48,4 @@ def generar_aristas(nodos: List[Tuple], orden_fases: Dict) -> Dict[Tuple, List[T
                 if orden_fases[f1] == max_orden_fases and orden_fases[f2] == 1:
                     aristas[nodo1].append(nodo2)
 
-    return aristas  # Corregido: se eliminó texto adicional erróneo
+    return aristas

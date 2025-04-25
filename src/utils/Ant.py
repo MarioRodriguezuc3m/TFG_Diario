@@ -5,7 +5,7 @@ from collections import defaultdict
 import datetime
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from Standard.Graph import Graph  # Se usa solo para type hint
+    from Standard.Graph import Graph
 
 class Ant:
     def __init__(self, graph: "Graph", fases_orden: Dict[str, int], fases_duration: Dict[str, int], pacientes: List[str], alpha: float = 1.0, beta: float = 1.0):
@@ -16,21 +16,26 @@ class Ant:
         self.fases_orden = fases_orden  
         self.fases_duration = fases_duration  
         self.pacientes = pacientes
-        self.pacientes_progreso = defaultdict(dict, {paciente: {} for paciente in self.pacientes}) #Diccionario para mantener el progreso de cada paciente
+        self.pacientes_progreso = defaultdict(dict, {paciente: {} for paciente in self.pacientes}) # Se utiliza un diccionario para mantener el progreso de cada paciente
         self.current_node: Tuple = None
         self.total_cost: float = 0.0
         self.valid_solution = False
 
     def choose_next_node(self) -> Tuple:
         if self.current_node is None:
-            # Elegir aleatoriamente el primer nodo (solo nodos iniciales válidos)
+            # Se eligen aleatoriamente los nodos iniciales válidos (solo nodos de la primera fase)
             valid_initial_nodes = [
                 node for node in self.graph.nodes
-                if self.fases_orden[node[4]] == 1  # Solo Fase1 (orden 1)
+                if self.fases_orden[node[4]] == 1  # Se seleccionan únicamente nodos de Fase1 (orden 1)
             ]
             return random.choice(valid_initial_nodes) if valid_initial_nodes else None
         else:
             candidates = self.graph.edges.get(self.current_node, [])
+            # Filtrar candidatos para evitar pacientes que ya han completado todas las fases
+            candidates = [
+                node for node in candidates
+                if len(self.pacientes_progreso[node[0]]) < len(self.fases_orden)
+            ]
             if not candidates:
                 return None
 
@@ -40,7 +45,7 @@ class Ant:
 
             for node in candidates:
                 heuristic = self.calcular_heuristica(node)
-                # Obtener el valor de la feromona para la transición actual
+                # Se obtiene el valor de la feromona para la transición actual
                 pheromone = self.graph.get_pheromone(self.current_node, node)
                 candidate_weight = (pheromone ** self.alpha) * (heuristic ** self.beta)
                 candidate_list.append(node)
@@ -55,75 +60,70 @@ class Ant:
 
     def calcular_heuristica(self, node: Tuple) -> float:
         """
-        Simplified heuristic calculation with better time efficiency.
+        Función para calcular el valor heuristico, comparando el current_node, con el nodo(node) al que se quiere transicionar.
         """
         paciente, consulta, hora, medico, fase = node
         
-        # Base score
+        # Puntuación base
         score = 10.0
         
-        # Fast time conversion - avoid datetime parsing
         hora_parts = hora.split(':')
         node_mins = int(hora_parts[0]) * 60 + int(hora_parts[1])
         
-        # Process current node time comparison if not first node
         if self.current_node:
             current_hora_parts = self.current_node[2].split(':')
             current_mins = int(current_hora_parts[0]) * 60 + int(current_hora_parts[1])
             duracion_actual = self.fases_duration[self.current_node[4]]
             
-            # Time factor - simplified calculation
+            # Si el paciente del siguiente nodo es el mismo que el del nodo actual:
             if paciente == self.current_node[0]:
-                # Check if next phase starts after current one completes
+                # Se verifica si la siguiente fase comienza después de que se complete la actual
                 if node_mins < current_mins + duracion_actual:
-                    score -= 20.0  # Strong penalty for time overlap
+                    score -= 20.0  # Se aplica una fuerte penalización por superposición de tiempo
                 else:
-                    # Optimize time gap evaluation
+                    # Se calcula el tiempo de espera entre el nodo actual y el siguiente
                     tiempo_espera = node_mins - (current_mins + duracion_actual)
                     if tiempo_espera <= 60:
-                        score += 10.0  # Optimal time continuity
+                        score += 10.0  # Continuidad de tiempo óptima
                     elif tiempo_espera <= 120:
-                        score += 6.0   # Reasonable wait time
-                    elif tiempo_espera > 120:  # More than 3 hours
-                        score -= min(10.0, (tiempo_espera - 180) / 60.0 * 2.0)  # Limited penalty
+                        score += 6.0   # Tiempo de espera razonable
+                    elif tiempo_espera > 120:  # Más de 3 horas
+                        score -= min(10.0, (tiempo_espera - 180) / 60.0 * 2.0)  # Penalización
         
-        # Track conflicts with a single pass through visited nodes
-        # Using node time ranges to check for conflicts
+
         node_end_mins = node_mins + self.fases_duration[fase]
         
-        # Counter for resource usage (simplified balancing)
+        # Variables para almacenar el uso de recursos (equilibrio simplificado)
         medico_count = 0
         consulta_count = 0
         
+        # Para los nodos visitados por la hormiga, se evalua si no hay conflictos de recursos, con el nodo al que se va a transicionar
         for v_node in self.visited:
             v_paciente, v_consulta, v_hora, v_medico, v_fase = v_node
             
-            # Fast time conversion
             v_hora_parts = v_hora.split(':')
             v_mins = int(v_hora_parts[0]) * 60 + int(v_hora_parts[1])
             v_end_mins = v_mins + self.fases_duration[v_fase]
             
-            # Check for time overlap
             if node_mins < v_end_mins and v_mins < node_end_mins:
-                # Resource conflicts
                 if v_medico == medico:
-                    score -= 15.0  # Doctor conflict
+                    score -= 15.0  # Conflicto de médico
                 if v_consulta == consulta:
-                    score -= 15.0  # Consultation room conflict
+                    score -= 15.0  # Conflicto de sala de consulta
             
-            # Count resource usage for balancing
+            # Se cuenta el uso de recursos
             if v_medico == medico:
                 medico_count += 1
             if v_consulta == consulta:
                 consulta_count += 1
         
-        # Simple balancing boost based on current counts
+        # Se favorece el uso de recursos no  utilizados
         if medico_count == 0:
-            score += 2.0  # Boost for unused doctor
+            score += 2.0 
         if consulta_count == 0:
-            score += 2.0  # Boost for unused consultation room
+            score += 2.0
         
-        # Ensure positive heuristic
+        # Se asegura una heurística positiva
         return max(0.1, score)
 
     def move(self, node: Tuple):
@@ -132,7 +132,7 @@ class Ant:
         paciente, _, hora, _ , fase = node = node
         self.pacientes_progreso[paciente][fase] = hora
         
-        # Verificar solución completa y orden correcto
+        # Se verifica que la solución sea completa y que el orden sea correcto
         self.valid_solution = all(
             self._fases_en_orden_correcto(fases) 
             for fases in self.pacientes_progreso.values()

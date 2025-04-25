@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt 
 from Standard.Graph import Graph
 from utils.Ant import Ant
-from typing import Dict,List,Tuple
+from typing import Dict, List, Tuple
 from collections import defaultdict
 import datetime
 import random
@@ -10,8 +10,26 @@ import os
 import math
 
 class ACO:
-    def __init__(self, graph: Graph,  fases_orden: Dict[str, int], fases_duration: Dict[str, int], pacientes: List[str],medicos: List[str],consultas: List[str],horas: List[str], n_ants: int = 10, iterations: int = 100,
+    def __init__(self, graph: Graph, fases_orden: Dict[str, int], fases_duration: Dict[str, int], pacientes: List[str], medicos: List[str], consultas: List[str], horas: List[str], n_ants: int = 10, iterations: int = 100,
                  alpha: float = 1.0, beta: float = 3.0, rho: float = 0.1, Q: float = 1.0):
+        """
+        Inicializa el algoritmo de Optimización por Colonia de Hormigas.
+        
+        Parámetros:
+        - graph: Grafo que representa el espacio de búsqueda
+        - fases_orden: Diccionario con el orden de las fases
+        - fases_duration: Diccionario con la duración de cada fase en minutos
+        - pacientes: Lista de pacientes a programar
+        - medicos: Lista de médicos disponibles
+        - consultas: Lista de salas de consulta disponibles
+        - horas: Lista de horas disponibles para citas
+        - n_ants: Número de hormigas (agentes) a usar en cada iteración
+        - iterations: Número de iteraciones del algoritmo
+        - alpha: Parámetro que controla la importancia de las feromonas
+        - beta: Parámetro que controla la importancia de la información heurística
+        - rho: Tasa de evaporación de feromonas
+        - Q: Constante que afecta la cantidad de feromonas depositadas
+        """
         self.graph = graph
         self.fases_orden = fases_orden  
         self.fases_duration = fases_duration  
@@ -25,88 +43,110 @@ class ACO:
         self.beta = beta
         self.rho = rho
         self.Q = Q
-        self.best_solution = None
-        self.total_costs = []
-        self.best_cost = float('inf')
-        self.execution_time = None
+        self.best_solution = None  # Se almacena aquí la mejor solución global
+        self.total_costs = []      # Se registran los costes de cada iteración
+        self.best_cost = float('inf')  # Se inicializa con valor infinito
+        self.execution_time = None  # Se usa para almacenar el tiempo total
 
     def run(self):
-        start_time = time.time()
+        """
+        Ejecuta el algoritmo principal de optimización de colonia de hormigas.
+        Retorna la mejor solución encontrada y su coste.
+        """
+        start_time = time.time()  # Se inicia el cronómetro
         
         for iteration in range(self.iterations):
-            # Create ants with shared reference data to reduce memory usage
             ants = [Ant(self.graph, self.fases_orden, self.fases_duration, self.pacientes, 
                         self.alpha, self.beta) for _ in range(self.n_ants)]
             
-            # Process ants in parallel or batches if possible
+            # Se inicializan variables para la iteración actual
             iteration_best_cost = float('inf')
             iteration_best_solution = None
             iteration_best_ant = None
             
+            # Se procesa cada hormiga de la colonia
             for ant_idx, ant in enumerate(ants):
-                # Early termination if ant isn't making progress
+                # Se limita el número de intentos para evitar bucles infinitos
                 max_attempts = len(self.graph.nodes) * 2
                 attempts = 0
                 
+                # Se construye la solución paso a paso
                 while attempts < max_attempts and not ant.valid_solution:
-                    next_node = ant.choose_next_node()
+                    next_node = ant.choose_next_node()  # Se selecciona el próximo nodo
                     if next_node is None:
-                        break
-                    ant.move(next_node)
+                        break  # No quedan nodos válidos
+                    ant.move(next_node)  # Se realiza el movimiento
                     attempts += 1
                 
+                # Se evalúa si la hormiga encontró una solución viable
                 if ant.valid_solution:
                     ant.total_cost = self.calcular_coste(ant.visited)
+                    # Se actualiza la mejor solución de esta iteración si procede
                     if ant.total_cost < iteration_best_cost:
                         iteration_best_cost = ant.total_cost
                         iteration_best_solution = ant.visited.copy()
                         iteration_best_ant = ant
             
-            # Apply local search only if we found a valid solution
+            # Se aplica búsqueda local para refinar la solución
             if iteration_best_solution is not None:
-                # Multiple local search attempts with diminishing returns check
+                # Se realizan hasta 3 mejoras incrementales
                 current_solution = iteration_best_solution
                 current_cost = iteration_best_cost
                 
-                for _ in range(3):  # Try up to 3 sequential improvements
+                for _ in range(3):  # Se intenta mejorar hasta 3 veces
                     improved_solution = self.local_search(current_solution)
                     improved_cost = self.calcular_coste(improved_solution)
                     
-                    if improved_cost < current_cost * 0.99:  # At least 1% improvement
+                    # Se acepta la mejora solo si es significativa (>1%)
+                    if improved_cost < current_cost * 0.99:
                         current_solution = improved_solution
                         current_cost = improved_cost
                     else:
-                        break  # Stop if improvements are marginal
+                        break  # Se detiene si no hay mejora considerable
                 
-                # Update best solution if improved
+                # Se actualiza la solución global si es mejor
                 if current_cost < self.best_cost:
                     self.best_cost = current_cost
                     self.best_solution = current_solution.copy()
+                
+                if current_cost < iteration_best_cost:
+                    iteration_best_cost = current_cost
+                    iteration_best_ant.visited = current_solution.copy()
             
-            # Update pheromones only based on best ant(s)
+            # Se actualizan las feromonas solo con la mejor hormiga
             if iteration_best_ant:
                 self.graph.update_pheromone([iteration_best_ant], self.rho, self.Q)
             
-            self.total_costs.append(self.best_cost)
+            # Se registra el progreso para análisis posterior
+            self.total_costs.append(iteration_best_cost)
         
+        # Se calcula el tiempo total de ejecución
         end_time = time.time()
         self.execution_time = end_time - start_time
         
         return self.best_solution, self.best_cost
 
     def calcular_coste(self, asignaciones: List[Tuple]) -> float:
-        """Función para calcular el coste de una solución."""
-        # Pre-process all assignments for faster lookup
+        """
+        Calcula el coste de una solución sumando penalizaciones por:
+        - Conflictos de recursos (mismo médico o consulta a la misma hora)
+        - Secuencia incorrecta de fases para pacientes
+        - Tiempos de espera excesivos entre fases
+        
+        Retorna un valor numérico que representa el coste total.
+        """
+        # Se preprocesan las asignaciones para optimizar el cálculo
         fases_activas = []
         tiempos_pacientes = defaultdict(list)
         
-        # Cache for datetime conversions
+        # Se usa caché para evitar conversiones repetidas
         hora_cache = {}
         
+        # Se procesa cada tupla de asignación
         for asignacion in asignaciones:
             paciente, consulta, hora_str, medico, fase = asignacion
             
-            # Cache datetime conversion to avoid repeated parsing
+            # Se convierte la hora a minutos usando caché
             if hora_str not in hora_cache:
                 hora_inicio = datetime.datetime.strptime(hora_str, "%H:%M").time()
                 inicio_min = hora_inicio.hour * 60 + hora_inicio.minute
@@ -116,7 +156,7 @@ class ACO:
                 
             fin_min = inicio_min + self.fases_duration[fase]
             
-            # Store phase info
+            # Se almacenan los datos procesados
             fases_activas.append({
                 'paciente': paciente,
                 'consulta': consulta,
@@ -127,43 +167,43 @@ class ACO:
                 'orden': self.fases_orden[fase]
             })
             
-            # Store patient times
+            # Se registran los tiempos por paciente
             tiempos_pacientes[paciente].append((
                 self.fases_orden[fase],
                 inicio_min,
                 fin_min
             ))
         
-        penalty = 0
+        penalty = 0  # Se inicia sin penalizaciones
         
-        # Check resource conflicts using spatial indexing approach
-        # Track resource usage by time slots
+        # Se verifica el uso de recursos mediante indexación espacial
         medico_slots = defaultdict(list)
         consulta_slots = defaultdict(list)
         
+        # Se mapea cada recurso a sus franjas de uso
         for fase in fases_activas:
             medico_slots[(fase['medico'], fase['inicio'], fase['fin'])].append(fase)
             consulta_slots[(fase['consulta'], fase['inicio'], fase['fin'])].append(fase)
         
-        # Calculate overlaps more efficiently
+        # Se calculan las penalizaciones por superposición
         for slots in [medico_slots, consulta_slots]:
             for resource_time, fases in slots.items():
-                if len(fases) > 1:  # Conflict detected
-                    # Calculate overlap penalty for each pair
+                if len(fases) > 1:  # Se detecta conflicto de recursos
+                    # Se penaliza cada superposición
                     for i in range(len(fases)):
                         for j in range(i+1, len(fases)):
                             a, b = fases[i], fases[j]
                             overlap_time = min(a['fin'], b['fin']) - max(a['inicio'], b['inicio'])
                             if overlap_time > 0:
-                                penalty += 2000 * overlap_time
+                                penalty += 2000 * overlap_time  # Se penaliza proporcionalmente
         
-        # Early return if penalty is already too high
+        # Se interrumpe si ya se superó un umbral crítico
         if penalty > 50000:
             return penalty
         
-        # Check phase sequences
+        # Se verifican secuencias de fases por paciente
         for paciente, tiempos in tiempos_pacientes.items():
-            # Sort by expected phase order
+            # Se ordenan por secuencia lógica
             tiempos_ordenados = sorted(tiempos, key=lambda x: x[0])
             
             ultima_fase = None
@@ -174,29 +214,31 @@ class ACO:
                 inicio_actual = fase_data[1]
                 fin_actual = fase_data[2]
                 
-                # Check correct order
+                # Se verifica el orden correcto de fases
                 if orden_actual != orden_esperado:
-                    penalty += 10000
-                    break  # Early exit for this patient
+                    penalty += 10000  # Se penaliza severamente
+                    break  # Se termina con este paciente
                 
-                # Check temporal continuity
+                # Se verifica la coherencia temporal
                 if ultima_fase is not None:
                     _, _, fin_prev = ultima_fase
                     
                     if inicio_actual < fin_prev:
+                        # Se detecta solapamiento entre fases
                         overlap = fin_prev - inicio_actual
-                        penalty += 5000 * overlap
+                        penalty += 5000 * overlap  # Se penaliza gravemente
                     else:
+                        # Se penaliza por tiempo de espera
                         tiempo_espera = inicio_actual - fin_prev
-                        if tiempo_espera > 120:
-                            penalty += tiempo_espera * 2
+                        if tiempo_espera > 120:  # Más de 2 horas
+                            penalty += tiempo_espera * 2  # Se penaliza con mayor peso
                         else:
-                            penalty += tiempo_espera
+                            penalty += tiempo_espera  # Penalización estándar
                 
                 ultima_fase = fase_data
                 orden_esperado += 1
                 
-                # Early return if penalty is too high
+                # Se termina si ya es una solución demasiado mala
                 if penalty > 100000:
                     return penalty
         
@@ -204,77 +246,77 @@ class ACO:
     
     def local_search(self, solution: List[Tuple]) -> List[Tuple]:
         """
-        Optimized local search with faster conflict detection and targeted fixes.
+        Búsqueda local optimizada que detecta conflictos rápidamente 
+        y aplica soluciones específicas.
         """
         original_cost = self.calcular_coste(solution)
         
-        # Quick check if solution is already good enough
-        if original_cost < 800:  # Skip local search for already good solutions
+        # Se omite la búsqueda si la solución ya es buena
+        if original_cost < 800:
             return solution
         
-        # Use efficient conflict detection that avoids repeated time conversions
-        resource_conflicts, phase_conflicts = self._find_all_conflicts_fast(solution)
+        # Se identifican los conflictos existentes
+        resource_conflicts, phase_conflicts = self.find_all_conflicts(solution)
         
-        # No conflicts found - try small random perturbations instead
+        # Se intentan mejoras aleatorias si no hay conflictos
         if not resource_conflicts and not phase_conflicts:
             return self._try_random_improvements(solution, original_cost)
         
-        # Focus on most severe conflicts first (typically phase conflicts)
+        # Se abordan primero los conflictos de fase por ser más críticos
         if phase_conflicts:
-            # Try to fix the most problematic resources first (those with most conflicts)
+            for conflict in phase_conflicts[:min(1, len(phase_conflicts))]:
+                improved = self.fix_conflicts(solution, conflict, original_cost, True)
+                new_cost = self.calcular_coste(improved)
+                if new_cost < original_cost:
+                    return improved
+        
+        # Se resuelven después los conflictos de recursos
+        if resource_conflicts:
             conflict_counts = {}
-            for conflict in phase_conflicts:
-                key = (conflict[1], conflict[3])  # (consulta, medico)
+            for conflict in resource_conflicts:
+                key = (conflict[1], conflict[3])  # Se cuenta por (consulta, médico)
                 conflict_counts[key] = conflict_counts.get(key, 0) + 1
             
-            # Sort conflicts by severity (most conflicts first)
+            # Se ordenan los conflictos por frecuencia
             sorted_conflicts = sorted(
-                phase_conflicts,
+                resource_conflicts,
                 key=lambda x: conflict_counts.get((x[1], x[3]), 0),
                 reverse=True
             )
-            
-            # Try fixing each conflict, but limit to the top N most severe
+            # Se intenta resolver primero los conflictos más frecuentes
             for conflict in sorted_conflicts[:min(1, len(sorted_conflicts))]:
-                improved = self._fix_conflict_fast(solution, conflict, original_cost, False)
+                improved = self.fix_conflicts(solution, conflict, original_cost, False)
                 new_cost = self.calcular_coste(improved)
                 if new_cost < original_cost:
                     return improved
         
-        # Then try fixing resource conflicts
-        if resource_conflicts:
-            for conflict in resource_conflicts[:min(1, len(resource_conflicts))]:
-                improved = self._fix_conflict_fast(solution, conflict, original_cost, True)
-                new_cost = self.calcular_coste(improved)
-                if new_cost < original_cost:
-                    return improved
-        
-        # If no improvements found, return original solution
+        # Se devuelve la solución original si no se encontraron mejoras
         return solution
 
-    def _find_all_conflicts_fast(self, solution):
+    def find_all_conflicts(self, solution):
         """
-        Fast detection of both resource and phase conflicts in a single pass.
+        Detección rápida de conflictos de recursos y fases en una sola pasada.
+        Retorna dos listas: conflictos de recursos y conflictos de fases.
         """
         resource_conflicts = []
         phase_conflicts = []
         
-        # Pre-process time conversions and organize data
+        # Se preprocesan los datos para análisis eficiente
         solution_data = []
         time_cache = {}
         
-        # Group by patients for phase conflict detection
+        # Se agrupan las fases por paciente
         patients_phases = defaultdict(list)
         
-        # Resource usage tracking
+        # Se rastrean los usos de recursos
         medicos_uso = defaultdict(list)
         consultas_uso = defaultdict(list)
         
-        # Process all assignments in one pass
+        # Se procesan todas las asignaciones una sola vez
         for asig in solution:
             paciente, consulta, hora_str, medico, fase = asig
             
-            # Convert time to minutes - use cache for efficiency
+            # Se convierte el tiempo usando caché
             if hora_str not in time_cache:
                 hora_obj = datetime.datetime.strptime(hora_str, "%H:%M")
                 inicio_mins = hora_obj.hour * 60 + hora_obj.minute
@@ -284,7 +326,7 @@ class ACO:
                 
             fin_mins = inicio_mins + self.fases_duration[fase]
             
-            # Store processed data
+            # Se almacenan los datos normalizados
             asig_data = {
                 'original': asig,
                 'paciente': paciente,
@@ -297,84 +339,85 @@ class ACO:
             }
             solution_data.append(asig_data)
             
-            # Track patient phases
+            # Se registran los datos por paciente
             patients_phases[paciente].append(asig_data)
             
-            # Track resource usage
+            # Se registra el uso de recursos
             medicos_uso[medico].append(asig_data)
             consultas_uso[consulta].append(asig_data)
         
-        # Check for resource conflicts
+        # Se detectan conflictos de recursos
         for resource_name, usage_list in list(medicos_uso.items()) + list(consultas_uso.items()):
-            # Only check resources with multiple assignments
+            # Se omiten recursos con una sola asignación
             if len(usage_list) <= 1:
                 continue
                 
-            # Sort by start time for efficient overlap checking
+            # Se ordenan por tiempo para detección eficiente
             usage_list.sort(key=lambda x: x['inicio_mins'])
             
-            # Find overlaps with a single pass
+            # Se buscan superposiciones en un solo recorrido
             for i in range(len(usage_list) - 1):
                 current = usage_list[i]
                 for j in range(i+1, len(usage_list)):
                     next_usage = usage_list[j]
                     
-                    # Check if there's overlap
+                    # Se verifica si existe solapamiento
                     if next_usage['inicio_mins'] < current['fin_mins']:
                         resource_conflicts.append(current['original'])
                         resource_conflicts.append(next_usage['original'])
                     else:
-                        # No more overlaps since list is sorted
+                        # Se aprovecha el ordenamiento para salir antes
                         break
         
-        # Check for phase conflicts
+        # Se detectan conflictos de fase entre pacientes
         for paciente, fases in patients_phases.items():
-            # Sort by phase order for sequential check
+            # Se ordenan por orden lógico de fase
             fases.sort(key=lambda x: x['orden'])
             
-            # Check phase sequence and overlaps
+            # Se verifican secuencia y tiempos
             for i in range(len(fases) - 1):
                 current = fases[i]
                 next_phase = fases[i+1]
                 
-                # Check for correct order
+                # Se verifica orden secuencial correcto
                 if next_phase['orden'] != current['orden'] + 1:
                     phase_conflicts.append(current['original'])
                     continue
                     
-                # Check for time sequence
+                # Se verifica coherencia temporal
                 if next_phase['inicio_mins'] < current['fin_mins']:
                     phase_conflicts.append(next_phase['original'])
         
-        # Remove duplicates
+        # Se eliminan duplicados para mayor eficiencia
         resource_conflicts = list(set(resource_conflicts))
         phase_conflicts = list(set(phase_conflicts))
         
         return resource_conflicts, phase_conflicts
 
-    def _fix_conflict_fast(self, solution, conflict_asig, original_cost, is_phase):
+    def fix_conflicts(self, solution, conflict_asig, original_cost, is_phase):
         """
-        Optimized conflict resolution that targets specific issues.
+        Resolución optimizada de conflictos dirigida a problemas específicos.
+        Intenta resolver un conflicto concreto probando diferentes cambios.
         """
         paciente, consulta, hora_str, medico, fase = conflict_asig
         best_solution = solution.copy()
         
-        # Convert the conflict time once
+        # Se convierte la hora una sola vez
         hora_obj = datetime.datetime.strptime(hora_str, "%H:%M")
         conflicto_mins = hora_obj.hour * 60 + hora_obj.minute
         
-        # Find the index of this conflict in the solution
+        # Se localiza el conflicto en la solución
         idx = solution.index(conflict_asig)
         
-        # Strategy selection based on conflict type
+        # Se definen estrategias según el tipo de conflicto
         strategies = []
         
         if is_phase:
-            # Phase conflicts: focus on time adjustments
-            # Find the right time slot after the previous phase
+            # Se abordan conflictos de fase mediante ajustes temporales
+            # Se busca el tiempo de finalización de fase previa
             prev_phase_end = self._get_previous_phase_end(solution, paciente, fase)
             
-            # Generate candidate times starting from after the previous phase
+            # Se generan horas candidatas posteriores a la fase previa
             candidate_times = []
             for hora in self.horas:
                 h_obj = datetime.datetime.strptime(hora, "%H:%M")
@@ -382,7 +425,7 @@ class ACO:
                 if h_mins >= prev_phase_end:
                     candidate_times.append(hora)
             
-            # Try each candidate time
+            # Se evalúa cada tiempo candidato
             for nueva_hora in candidate_times:
                 new_asig = (paciente, consulta, nueva_hora, medico, fase)
                 new_solution = solution.copy()
@@ -392,14 +435,14 @@ class ACO:
                 if new_cost < original_cost:
                     return new_solution
         else:
-            # Resource conflicts: try different resources or times
+            # Se abordan conflictos de recursos con varias estrategias
             
-            # First try: change doctor/room without changing time
+            # Estrategia 1: Se cambia el médico asignado
             for nuevo_medico in self.medicos:
                 if nuevo_medico == medico:
                     continue
                     
-                # Try new doctor assignment
+                # Se prueba el cambio de médico
                 new_asig = (paciente, consulta, hora_str, nuevo_medico, fase)
                 new_solution = solution.copy()
                 new_solution[idx] = new_asig
@@ -408,13 +451,13 @@ class ACO:
                 if new_cost < original_cost:
                     return new_solution
             
-            # Second try: change consultation room
+            # Estrategia 2: Se cambia la sala de consulta
             for nueva_consulta in self.consultas:
                 if nueva_consulta == consulta:
                     continue
                     
-                # Try new consultation room
-                new_asig = (paciente, consulta, hora_str, medico, fase)
+                # Se prueba otra sala de consulta
+                new_asig = (paciente, nueva_consulta, hora_str, medico, fase)
                 new_solution = solution.copy()
                 new_solution[idx] = new_asig
                 
@@ -422,7 +465,7 @@ class ACO:
                 if new_cost < original_cost:
                     return new_solution
             
-            # Last try: move to different time slot
+            # Estrategia 3: Se modifica el horario
             for nueva_hora in self.horas:
                 if nueva_hora == hora_str:
                     continue
@@ -435,112 +478,122 @@ class ACO:
                 if new_cost < original_cost:
                     return new_solution
         
-        # If no improvements found, return original solution
+        # Se mantiene la solución original si no hay mejoras
         return solution
 
     def _get_previous_phase_end(self, solution, paciente, current_fase):
         """
-        Find the end time of the previous phase for a patient.
+        Encuentra el tiempo de finalización de la fase anterior para un paciente.
+        Importante para programar fases secuenciales sin solapamiento.
         """
         current_orden = self.fases_orden[current_fase]
         if current_orden == 1:
-            return 0  # No previous phase
+            return 0  # No hay fase anterior para la primera fase
         
         prev_orden = current_orden - 1
         
-        # Find the previous phase assignment
+        # Se busca la fase previa del paciente
         for asig in solution:
             asig_paciente, _, hora_str, _, asig_fase = asig
             if (asig_paciente == paciente and 
                 self.fases_orden[asig_fase] == prev_orden):
                 
-                # Calculate end time of previous phase
+                # Se calcula el tiempo de finalización
                 hora_obj = datetime.datetime.strptime(hora_str, "%H:%M")
                 inicio_mins = hora_obj.hour * 60 + hora_obj.minute
                 return inicio_mins + self.fases_duration[asig_fase]
         
-        return 0  # No previous phase found
+        return 0  # Se retorna 0 si no se encontró fase previa
 
     def _try_random_improvements(self, solution, original_cost):
         """
-        Try random small improvements when no clear conflicts are found.
+        Intenta mejoras aleatorias pequeñas cuando no se encuentran conflictos claros.
+        Prueba cambios aleatorios de hora, médico o sala de consulta.
         """
-        # Pick a random assignment to try to improve
-        for _ in range(3):  # Try a few random changes
+        # Se realizan varios intentos de mejora aleatoria
+        for _ in range(3):
             if not solution:
                 return solution
                 
+            # Se selecciona una asignación al azar
             random_idx = random.randint(0, len(solution)-1)
             random_asig = solution[random_idx]
             paciente, consulta, hora_str, medico, fase = random_asig
             
-            # Try a different time or resource
+            # Se elige un tipo de cambio aleatorio
             change_type = random.choice(['time', 'doctor', 'room'])
             
             new_solution = solution.copy()
             
             if change_type == 'time':
+                # Se prueba un horario diferente
                 nueva_hora = random.choice(self.horas)
                 new_asig = (paciente, consulta, nueva_hora, medico, fase)
             elif change_type == 'doctor':
+                # Se prueba otro médico
                 nuevo_medico = random.choice(self.medicos)
                 new_asig = (paciente, consulta, hora_str, nuevo_medico, fase)
-            else:  # room
+            else: 
+                # Se prueba otra consulta
                 nueva_consulta = random.choice(self.consultas)
                 new_asig = (paciente, nueva_consulta, hora_str, medico, fase)
             
             new_solution[random_idx] = new_asig
             
+            # Se evalúa si la modificación mejoró la solución
             new_cost = self.calcular_coste(new_solution)
             if new_cost < original_cost:
                 return new_solution
         
+        # Se mantiene la solución original si no se encontraron mejoras
         return solution
 
     def _generar_hora_respetando_duracion(self, horas: List[str], duracion: int) -> str:
         """
-        Generate a random time from available slots, respecting phase duration.
-        Ensures the phase fits within available hours and aligns with valid time slots.
+        Genera una hora aleatoria de los slots disponibles, respetando la duración de la fase.
+        Asegura que la fase quepa dentro de las horas disponibles y se alinee con slots válidos.
         """
-        # Convert available hours to datetime objects
+        # Se convierten las horas a datetime
         formato = "%H:%M"
         tiempos = [datetime.datetime.strptime(h, formato) for h in horas]
         
-        # Find valid start times that allow the phase to complete
+        # Se buscan horas de inicio que permitan completar la fase
         valid_starts = []
         
         for tiempo in tiempos:
             start_mins = tiempo.hour * 60 + tiempo.minute
             end_mins = start_mins + duracion
             
-            # Check if this time slot can accommodate the phase
-            # by ensuring the end time is within the range of available hours
+            # Se verifica que la fase se complete dentro del rango horario
             max_mins = max(t.hour * 60 + t.minute for t in tiempos)
             if end_mins <= max_mins:
                 valid_starts.append(tiempo)
         
         if not valid_starts:
-            # No valid slots found, return earliest time as fallback
+            # Se usa la hora más temprana si no hay slots válidos
             return min(tiempos).strftime(formato)
         
-        # Select a random valid start time
+        # Se elige un tiempo aleatorio entre los válidos
         selected_time = random.choice(valid_starts)
         return selected_time.strftime(formato)
 
     def plot_convergence(self):
+        """
+        Genera un gráfico que muestra la evolución del coste a lo largo de las iteraciones.
+        Útil para analizar el rendimiento del algoritmo.
+        """
         plt.plot(self.total_costs)
         plt.xlabel('Iteración')
         plt.ylabel('Mejor Distancia')
         plt.title('Convergencia del ACO')
         
-        # Crear directorio si no existe
+        # Se crea el directorio si no existe
         os.makedirs("/app/plots", exist_ok=True)
         
-        # Guardar la imagen
+        # Se guarda la gráfica
         plt.savefig("/app/plots/convergencia.png")
-        plt.close()  # Limpiar la figura
+        plt.close()  # Se libera la memoria
 
     def get_execution_time(self):
         """Devuelve el tiempo de ejecución total en segundos."""
         return self.execution_time
-
