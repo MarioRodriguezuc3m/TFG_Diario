@@ -2,18 +2,29 @@ from Standard.ACO import ACO
 from Standard.Graph import Graph
 from utils.generate_graph_components import generar_nodos, generar_aristas
 from utils.plot_gantt_solution import plot_gantt_chart
+import json
+
+def get_configuration():
+   try:
+      # Cargar la configuración desde el archivo JSON
+      with open('/app/src/Standard/config.json', 'r') as file:
+         config = json.load(file)
+         pacientes = config['pacientes']
+         consultas = config['consultas']
+         horas = config['horas']
+         medicos = config['medicos']
+         fases = config['fases']
+         orden_fases = config['orden_fases']
+         fases_duration = config['fases_duration']
+         return pacientes, consultas, horas, medicos, fases, orden_fases, fases_duration
+   except Exception as e:
+      print(f"Error al cargar la configuración: {e}")
+      return [], [], [], [], [], {}, {}
 
 # Ejemplo de uso ---------------------------------------------------------------
 if __name__ == "__main__":
-  # Datos de entrada
-  pacientes = ['Paciente1', 'Paciente2','Paciente3','Paciente4','Paciente5','Paciente6','Paciente7','Paciente8']
-  consultas = ['ConsultaA', 'ConsultaB','ConsultaC','ConsultaD']
-  horas = ['09:00', '10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00']
-  medicos = ['MedicoX', 'MedicoY','MedicoZ','MedicoW']
-  fases = ['Fase1', 'Fase2','Fase3', 'Fase4']
-  orden_fases= {'Fase1': 1, 'Fase2': 2, 'Fase3': 3, 'Fase4': 4}
-  fases_duration = {'Fase1': 60, 'Fase2': 60, 'Fase3': 60, 'Fase4': 60}
-
+  # Se obtiene la configuración del problema desde el archivo config.json
+  pacientes,consultas,horas,medicos,fases,orden_fases,fases_duration = get_configuration()
   # Generar nodos y aristas
   nodos = generar_nodos(pacientes, consultas, horas, medicos,fases)
   aristas = generar_aristas(nodos,orden_fases)

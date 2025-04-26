@@ -1,0 +1,54 @@
+{
+  "pacientes": [
+      "Paciente1",
+      "Paciente2",
+      "Paciente3",
+      "Paciente4",
+      "Paciente5",
+      "Paciente6",
+      "Paciente7",
+      "Paciente8"
+  ],
+  "consultas": [
+      "ConsultaA",
+      "ConsultaB",
+      "ConsultaC",
+      "ConsultaD"
+  ],
+  "horas": [
+      "09:00",
+      "10:00",
+      "11:00",
+      "12:00",
+      "13:00",
+      "14:00",
+      "15:00",
+      "16:00",
+      "17:00",
+      "18:00"
+  ],
+  "medicos": [
+      "MedicoX",
+      "MedicoY",
+      "MedicoZ",
+      "MedicoW"
+  ],
+  "fases": [
+      "Fase1",
+      "Fase2",
+      "Fase3",
+      "Fase4"
+  ],
+  "orden_fases": {
+      "Fase1": 1,
+      "Fase2": 2,
+      "Fase3": 3,
+      "Fase4": 4
+  },
+  "fases_duration": {
+      "Fase1": 60,
+      "Fase2": 60,
+      "Fase3": 60,
+      "Fase4": 60
+  }
+}
