@@ -36,7 +36,7 @@ def plot_gantt_chart(best_solution, fases_duration, pacientes, medicos, consulta
     
     # Definir hora de inicio y fin para el eje X
     start_hour = 9  # Hora de inicio: 9:00
-    end_hour = 19   # Hora de fin: 19:00 (ajusta según necesites)
+    end_hour = 19   # Hora de fin: 19:00 
     
     for assignment in best_solution:
         patient, consultation, start_time_str, doctor, phase = assignment
