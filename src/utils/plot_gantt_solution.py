@@ -3,151 +3,136 @@ import pandas as pd
 from datetime import datetime, timedelta
 import os
 
-def plot_gantt_chart(best_solution, fases_duration, pacientes, medicos, consultas, save_path='/app/plots/'):
+def plot_gantt_chart(best_solution, fases_duration, pacientes, medicos, consultas, 
+                     output_filepath='/app/plots/schedule_gantt.png',
+                     phase_color_map=None, 
+                     configured_start_hour=8, 
+                     configured_end_hour=20):  
     """
-    Creates a Gantt chart from the ACO solution using Plotly and saves it as PNG to the specified path.
-    
-    Args:
-        best_solution: List of assignments as tuples (patient, consultation, time, doctor, phase)
-        fases_duration: Dictionary mapping phases to their duration in minutes
-        pacientes: List of patient names
-        medicos: List of doctor names
-        consultas: List of consultation rooms
-        save_path: Path to save the Gantt chart
+    Crea gráfico Gantt de la solución ACO usando Plotly
     """
-    # Ensure the save directory exists
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
+    save_dir = os.path.dirname(output_filepath)
+    if save_dir and not os.path.exists(save_dir):
+        os.makedirs(save_dir, exist_ok=True)
     
-    # Parse the solution into a structured format for Plotly
     gantt_data = []
-    
-    # Base date for plotting (just using today's date since we only care about time)
     base_date = datetime.today().date()
     
-    # Define colors for different phases
-    phase_colors = {
-        'Fase1': 'rgb(52, 152, 219)',   # Azul claro (Peter River)
-        'Fase2': 'rgb(231, 76, 60)',    # Rojo (Alizarin)
-        'Fase3': 'rgb(46, 204, 113)',   # Verde (Emerald)
-        'Fase4': 'rgb(155, 89, 182)',   # Púrpura (Amethyst)
-    }
+    default_fallback_color = 'rgb(128, 128, 128)' 
 
-    
-    # Definir hora de inicio y fin para el eje X
-    start_hour = 9  # Hora de inicio: 9:00
-    end_hour = 19   # Hora de fin: 19:00 
-    
+    actual_min_start_dt = None
+    actual_max_end_dt = None
+
     for assignment in best_solution:
         patient, consultation, start_time_str, doctor, phase = assignment
         
         try:
-            # Convert time string to datetime object
             hour, minute = map(int, start_time_str.split(':'))
-            start_time = datetime.combine(base_date, datetime.min.time()) + timedelta(hours=hour, minutes=minute)
-            duration = fases_duration.get(phase, 60)  # Default 60 minutes if not found
-            end_time = start_time + timedelta(minutes=duration)
+            start_dt = datetime.combine(base_date, datetime.min.time()) + timedelta(hours=hour, minutes=minute)
             
-            # Format dates for Plotly
-            start_str = start_time.strftime('%Y-%m-%d %H:%M:%S')
-            end_str = end_time.strftime('%Y-%m-%d %H:%M:%S')
+            duration_minutes = fases_duration.get(phase) 
+            if duration_minutes is None:
+                continue
+
+            end_dt = start_dt + timedelta(minutes=duration_minutes)
             
-            # Get color for this phase
-            color = phase_colors.get(phase, 'rgb(128, 128, 128)')  # Default gray if phase not found
+            if actual_min_start_dt is None or start_dt < actual_min_start_dt:
+                actual_min_start_dt = start_dt
+            if actual_max_end_dt is None or end_dt > actual_max_end_dt:
+                actual_max_end_dt = end_dt
+
+            start_str_plotly = start_dt.strftime('%Y-%m-%d %H:%M:%S')
+            end_str_plotly = end_dt.strftime('%Y-%m-%d %H:%M:%S')
             
-            gantt_data.append({
-                'Task': f"{patient}",
-                'Start': start_str,
-                'Finish': end_str,
-                'Resource': phase,
-                'Description': f"Patient: {patient}<br>Doctor: {doctor}<br>Phase: {phase}<br>Room: {consultation}<br>Time: {start_time_str} - {end_time.strftime('%H:%M')}",
-                'Room': consultation
-            })
+            hover_text = (f"<b>{patient} - {phase}</b><br>"
+                          f"Médico: {doctor}<br>"
+                          f"Consulta: {consultation}<br>"
+                          f"Hora: {start_time_str} - {end_dt.strftime('%H:%M')}<br>"
+                          f"Duración: {duration_minutes} min")
             
-            gantt_data.append({
-                'Task': f"{doctor}",
-                'Start': start_str,
-                'Finish': end_str,
-                'Resource': phase,
-                'Description': f"Patient: {patient}<br>Doctor: {doctor}<br>Phase: {phase}<br>Room: {consultation}<br>Time: {start_time_str} - {end_time.strftime('%H:%M')}",
-                'Room': consultation
-            })
-            gantt_data.append({
-                'Task': f"{consultation}",
-                'Start': start_str,
-                'Finish': end_str,
-                'Resource': phase,
-                'Description': f"Patient: {patient}<br>Doctor: {doctor}<br>Phase: {phase}<br>Room: {consultation}<br>Time: {start_time_str} - {end_time.strftime('%H:%M')}",
-                'Room': consultation
-            })
-        except ValueError as e:
-            print(f"Error parsing time from {start_time_str}: {e}")
-    
+            gantt_data.append({'Task': f"{patient}", 'Start': start_str_plotly, 'Finish': end_str_plotly, 'Resource': phase, 'Description': hover_text})
+            gantt_data.append({'Task': f"{doctor}", 'Start': start_str_plotly, 'Finish': end_str_plotly, 'Resource': phase, 'Description': hover_text})
+            gantt_data.append({'Task': f"{consultation}", 'Start': start_str_plotly, 'Finish': end_str_plotly, 'Resource': phase, 'Description': hover_text})
+        
+        except (ValueError, TypeError):
+            continue
+
     if not gantt_data:
-        print("No valid schedule data found. Check your solution format.")
         return None
     
-    # Convert to DataFrame and sort
     df = pd.DataFrame(gantt_data)
-    df = df.sort_values(by=['Task', 'Start'])
+    task_order_prefix = {"Paciente:": 0, "Médico:": 1, "Consulta:": 2}
+    df['Task_Sort_Key'] = df['Task'].apply(lambda x: (task_order_prefix.get(x.split(' ')[0] + ' ', 3), x))
+    df = df.sort_values(by=['Task_Sort_Key', 'Start'])
+    df = df.drop(columns=['Task_Sort_Key'])
     
-    # Create the Gantt chart
+    # Configurar colores
+    colors_for_plot = {}
+    if phase_color_map:
+        unique_resources_in_df = df['Resource'].unique()
+        for resource_name in unique_resources_in_df:
+            colors_for_plot[resource_name] = phase_color_map.get(resource_name, default_fallback_color)
+    else:
+        unique_resources_in_df = df['Resource'].unique()
+        for resource_name in unique_resources_in_df:
+            colors_for_plot[resource_name] = default_fallback_color
+
     fig = ff.create_gantt(
         df,
-        colors={phase: phase_colors.get(phase, 'rgb(128, 128, 128)') for phase in df['Resource'].unique()},
-        index_col='Resource',
+        colors=colors_for_plot, 
+        index_col='Resource', 
         show_colorbar=True,
-        group_tasks=True,
+        group_tasks=True,     
         showgrid_x=True,
         showgrid_y=True,
-        title='Medical Appointments Schedule',
-        height=600,
-        width=1000,
-        bar_width=0.4,
-        show_hover_fill=True
+        title='Cronograma de Citas Médicas',
+        height=max(600, len(df['Task'].unique()) * 25), 
+        width=1200,
+        bar_width=0.4
     )
-    # Establece la opacidad de todas las barras a 0.5
-    for shape in fig.data:
-        shape['opacity'] = 0.5
     
-    # Crear marcas de tiempo para cada hora desde las 9:00 hasta las 19:00
-    time_ticks = []
-    time_labels = []
-    for hour in range(start_hour, end_hour + 1):
-        tick_time = datetime.combine(base_date, datetime.min.time()) + timedelta(hours=hour)
-        time_ticks.append(tick_time.strftime('%Y-%m-%d %H:%M:%S'))
-        time_labels.append(f"{hour}:00")
+    for trace in fig.data:
+        descriptions_for_trace = df[df['Resource'] == trace.name]['Description']
+        trace["opacity"] = 0.5
+        if not descriptions_for_trace.empty:
+             trace.text = descriptions_for_trace.tolist()
+        trace.hoverinfo = 'text'
+
+    # Configurar rango del eje X
+    x_axis_start_dt = datetime.combine(base_date, datetime.min.time()) + timedelta(hours=configured_start_hour)
+    x_axis_end_dt = datetime.combine(base_date, datetime.min.time()) + timedelta(hours=configured_end_hour)
+
+    # Expandir si hay datos fuera del rango configurado
+    if actual_min_start_dt and actual_min_start_dt < x_axis_start_dt:
+        x_axis_start_dt = actual_min_start_dt.replace(minute=0, second=0) 
+    if actual_max_end_dt and actual_max_end_dt > x_axis_end_dt:
+        x_axis_end_dt = (actual_max_end_dt.replace(minute=0, second=0) + timedelta(hours=1))
+
+    time_ticks_values = []
+    time_ticks_text = []
+    current_tick_dt = x_axis_start_dt
+    while current_tick_dt <= x_axis_end_dt:
+        time_ticks_values.append(current_tick_dt.strftime('%Y-%m-%d %H:%M:%S'))
+        time_ticks_text.append(current_tick_dt.strftime('%H:%M'))
+        current_tick_dt += timedelta(hours=1)
     
-    # Ordenar la leyenda en orden específico
-    ordered_phases = ['Fase1', 'Fase2', 'Fase3', 'Fase4']
-    
-    # Update layout for better visualization
     fig.update_layout(
-        xaxis_title="Horas",
-        yaxis_title="Recursos",
-        legend_title="Fases",
-        font=dict(size=12),
+        xaxis_title="Hora del Día",
+        yaxis_title="Recursos (Pacientes, Médicos, Consultas)",
+        legend_title="Fases del Estudio",
+        font=dict(size=10),
         xaxis=dict(
-            tickvals=time_ticks,  # Valores para las marcas de tiempo
-            ticktext=time_labels,  # Etiquetas de texto para las marcas
-            tickmode='array',     # Modo array para usar valores personalizados
-            range=[                # Rango del eje X
-                datetime.combine(base_date, datetime.min.time()) + timedelta(hours=start_hour),
-                datetime.combine(base_date, datetime.min.time()) + timedelta(hours=end_hour)
-            ]
-        ),
-        updatemenus=[]  # Elimina los botones de selección de período
+            tickvals=time_ticks_values,
+            ticktext=time_ticks_text,
+            tickmode='array',
+            range=[x_axis_start_dt.strftime('%Y-%m-%d %H:%M:%S'), 
+                   x_axis_end_dt.strftime('%Y-%m-%d %H:%M:%S')]
+        )
     )
     
-    # Reordenar la leyenda
-    for i, p in enumerate(fig.data):
-        if p.name in ordered_phases:
-            p.legendgroup = str(ordered_phases.index(p.name))
-            p.legendrank = ordered_phases.index(p.name)
-    
-    # Save the figure as PNG only
-    file_path = os.path.join(save_path, 'schedule_gantt.png')
-    fig.write_image(file_path, scale=2)  # scale=2 for higher resolution
-    
-    print(f"Gantt chart saved to {file_path}")
-    return file_path
+    try:
+        fig.write_image(output_filepath, scale=1.5)
+    except Exception:
+        return None
+        
+    return output_filepath

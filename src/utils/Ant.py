@@ -1,145 +1,196 @@
 import random
-from utils.generate_graph_components import *
-from typing import List, Dict, Tuple, Set
+from typing import List, Dict, Tuple, Set, TYPE_CHECKING
 from collections import defaultdict
 import datetime
-from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from Standard.Graph import Graph
 
 class Ant:
-    def __init__(self, graph: "Graph", fases_orden: Dict[str, int], fases_duration: Dict[str, int], pacientes: List[str], alpha: float = 1.0, beta: float = 1.0):
+    def __init__(self, graph: "Graph", paciente_to_estudio_info: Dict[str, Dict], pacientes: List[str], alpha: float = 1.0, beta: float = 1.0):
         self.graph = graph
         self.alpha = alpha
         self.beta = beta
         self.visited: List[Tuple] = []
-        self.fases_orden = fases_orden  
-        self.fases_duration = fases_duration  
-        self.pacientes = pacientes
-        self.pacientes_progreso = defaultdict(dict, {paciente: {} for paciente in self.pacientes}) # Se utiliza un diccionario para mantener el progreso de cada paciente
+        
+        # Info del estudio por paciente
+        self.paciente_to_estudio_info = paciente_to_estudio_info
+        
+        self.pacientes = pacientes 
+        self.pacientes_progreso = defaultdict(dict) # {paciente: {fase: hora}}
+        
         self.current_node: Tuple = None
         self.total_cost: float = 0.0
         self.valid_solution = False
 
     def choose_next_node(self) -> Tuple:
         if self.current_node is None:
-            # Se eligen aleatoriamente los nodos iniciales válidos (solo nodos de la primera fase)
+            # Elegir nodos iniciales válidos (primera fase del estudio)
             valid_initial_nodes = [
                 node for node in self.graph.nodes
-                if self.fases_orden[node[4]] == 1  # Se seleccionan únicamente nodos de Fase1 (orden 1)
+                if node[0] in self.paciente_to_estudio_info and \
+                   self.paciente_to_estudio_info[node[0]]["orden_fases"].get(node[4]) == 1
             ]
             return random.choice(valid_initial_nodes) if valid_initial_nodes else None
         else:
             candidates = self.graph.edges.get(self.current_node, [])
-            # Filtrar candidatos para evitar pacientes que ya han completado todas las fases
-            candidates = [
-                node for node in candidates
-                if len(self.pacientes_progreso[node[0]]) < len(self.fases_orden)
-            ]
-            if not candidates:
+            
+            # Filtrar candidatos válidos
+            filtered_candidates = []
+            for node in candidates:
+                paciente_candidato = node[0]
+                fase_candidata = node[4]
+
+                if paciente_candidato not in self.paciente_to_estudio_info:
+                    continue 
+
+                info_estudio_candidato = self.paciente_to_estudio_info[paciente_candidato]
+                
+                # Evitar pacientes que ya completaron todas las fases
+                if len(self.pacientes_progreso[paciente_candidato]) >= len(info_estudio_candidato["orden_fases"]):
+                    continue
+                
+                # Evitar programar la misma fase dos veces
+                if fase_candidata in self.pacientes_progreso[paciente_candidato]:
+                    continue
+                
+                filtered_candidates.append(node)
+
+            if not filtered_candidates:
                 return None
 
             candidate_list = []
             probabilities = []
-            total = 0.0
+            total_prob_weight = 0.0
 
-            for node in candidates:
+            for node in filtered_candidates:
                 heuristic = self.calcular_heuristica(node)
-                # Se obtiene el valor de la feromona para la transición actual
                 pheromone = self.graph.get_pheromone(self.current_node, node)
                 candidate_weight = (pheromone ** self.alpha) * (heuristic ** self.beta)
+                
                 candidate_list.append(node)
                 probabilities.append(candidate_weight)
-                total += candidate_weight
+                total_prob_weight += candidate_weight
 
-            if total == 0:
-                return random.choice(candidate_list)
+            # Normalizar y elegir
+            normalized_probabilities = [p / total_prob_weight for p in probabilities]
+            return random.choices(candidate_list, weights=normalized_probabilities, k=1)[0]
 
-            return random.choices(candidate_list, weights=[p / total for p in probabilities], k=1)[0]
 
-
-    def calcular_heuristica(self, node: Tuple) -> float:
-        """
-        Función para calcular el valor heuristico, comparando el current_node, con el nodo(node) al que se quiere transicionar.
-        """
-        paciente, consulta, hora, medico, fase = node
+    def calcular_heuristica(self, node_to_evaluate: Tuple) -> float:
+        paciente, consulta, hora_str, medico, fase = node_to_evaluate
         
-        # Puntuación base
         score = 10.0
         
-        hora_parts = hora.split(':')
+        if paciente not in self.paciente_to_estudio_info:
+             return 0.1 
+
+        info_estudio_paciente_eval = self.paciente_to_estudio_info[paciente]
+        
+        hora_parts = hora_str.split(':')
         node_mins = int(hora_parts[0]) * 60 + int(hora_parts[1])
         
         if self.current_node:
-            current_hora_parts = self.current_node[2].split(':')
-            current_mins = int(current_hora_parts[0]) * 60 + int(current_hora_parts[1])
-            duracion_actual = self.fases_duration[self.current_node[4]]
-            
-            # Si el paciente del siguiente nodo es el mismo que el del nodo actual:
-            if paciente == self.current_node[0]:
-                # Se verifica si la siguiente fase comienza después de que se complete la actual
-                if node_mins < current_mins + duracion_actual:
-                    score -= 20.0  # Se aplica una fuerte penalización por superposición de tiempo
-                else:
-                    # Se calcula el tiempo de espera entre el nodo actual y el siguiente
-                    tiempo_espera = node_mins - (current_mins + duracion_actual)
-                    if tiempo_espera <= 60:
-                        score += 10.0  # Continuidad de tiempo óptima
-                    elif tiempo_espera <= 120:
-                        score += 6.0   # Tiempo de espera razonable
-                    elif tiempo_espera > 120:  # Más de 3 horas
-                        score -= min(10.0, (tiempo_espera - 180) / 60.0 * 2.0)  # Penalización
-        
+            curr_paciente, _, curr_hora_str, _, curr_fase = self.current_node
+            info_estudio_paciente_curr = self.paciente_to_estudio_info[curr_paciente]
 
-        node_end_mins = node_mins + self.fases_duration[fase]
+            current_hora_parts = curr_hora_str.split(':')
+            current_mins = int(current_hora_parts[0]) * 60 + int(current_hora_parts[1])
+            duracion_fase_actual = info_estudio_paciente_curr["fases_duration"][curr_fase]
+            
+            if paciente == curr_paciente: # Mismo paciente
+                # Verificar superposición de tiempo
+                if node_mins < current_mins + duracion_fase_actual:
+                    score -= 20.0  # Penalización por superposición
+                else:
+                    tiempo_espera = node_mins - (current_mins + duracion_fase_actual)
+                    if tiempo_espera <= 60: score += 10.0
+                    elif tiempo_espera <= 120: score += 6.0
+                    else: score -= min(10.0, (tiempo_espera - 120) / 60.0 * 2.0) 
         
-        # Variables para almacenar el uso de recursos (equilibrio simplificado)
-        medico_count = 0
-        consulta_count = 0
+        duracion_fase_eval = info_estudio_paciente_eval["fases_duration"][fase]
+        node_end_mins = node_mins + duracion_fase_eval
         
-        # Para los nodos visitados por la hormiga, se evalua si no hay conflictos de recursos, con el nodo al que se va a transicionar
+        medico_count_conflict = 0
+        consulta_count_conflict = 0
+        
         for v_node in self.visited:
-            v_paciente, v_consulta, v_hora, v_medico, v_fase = v_node
+            v_paciente, v_consulta, v_hora_str, v_medico, v_fase = v_node
             
-            v_hora_parts = v_hora.split(':')
+            if v_paciente not in self.paciente_to_estudio_info: continue 
+            info_estudio_paciente_visitado = self.paciente_to_estudio_info[v_paciente]
+
+            v_hora_parts = v_hora_str.split(':')
             v_mins = int(v_hora_parts[0]) * 60 + int(v_hora_parts[1])
-            v_end_mins = v_mins + self.fases_duration[v_fase]
+            v_fase_duracion = info_estudio_paciente_visitado["fases_duration"][v_fase]
+            v_end_mins = v_mins + v_fase_duracion
             
+            # Comprobar superposición de tiempo
             if node_mins < v_end_mins and v_mins < node_end_mins:
                 if v_medico == medico:
-                    score -= 15.0  # Conflicto de médico
+                    score -= 15.0
+                    medico_count_conflict +=1
                 if v_consulta == consulta:
-                    score -= 15.0  # Conflicto de sala de consulta
-            
-            # Se cuenta el uso de recursos
-            if v_medico == medico:
-                medico_count += 1
-            if v_consulta == consulta:
-                consulta_count += 1
+                    score -= 15.0
+                    consulta_count_conflict +=1
         
-        # Se favorece el uso de recursos no  utilizados
-        if medico_count == 0:
-            score += 2.0 
-        if consulta_count == 0:
-            score += 2.0
+        # Bonus si no hay conflictos
+        if medico_count_conflict == 0: score += 2.0
+        if consulta_count_conflict == 0: score += 2.0
         
-        # Se asegura una heurística positiva
-        return max(0.1, score)
+        return max(0.1, score) 
 
     def move(self, node: Tuple):
         self.current_node = node
         self.visited.append(node)
-        paciente, _, hora, _ , fase = node = node
-        self.pacientes_progreso[paciente][fase] = hora
+        paciente, _, hora, _ , fase = node
+        self.pacientes_progreso[paciente][fase] = hora 
         
-        # Se verifica que la solución sea completa y que el orden sea correcto
-        self.valid_solution = all(
-            self._fases_en_orden_correcto(fases) 
-            for fases in self.pacientes_progreso.values()
-        )
+        # Verificar si la solución está completa
+        num_total_fases_programadas = sum(len(fases) for fases in self.pacientes_progreso.values())
+        
+        num_total_fases_esperadas = 0
+        for p_id in self.pacientes: 
+            if p_id in self.paciente_to_estudio_info:
+                 num_total_fases_esperadas += len(self.paciente_to_estudio_info[p_id]["orden_fases"])
 
-    def _fases_en_orden_correcto(self, fases_paciente: Dict) -> bool:
-        """Verifica si las fases de un paciente están en el orden correcto."""
-        fases = list(fases_paciente.keys())
-        orden = [self.fases_orden[f] for f in fases]
-        return orden == sorted(orden) and len(orden) == len(self.fases_orden)
+        if num_total_fases_programadas == num_total_fases_esperadas and num_total_fases_esperadas > 0 :
+            self.valid_solution = all(
+                self._fases_en_orden_correcto(p, prog_paciente)
+                for p, prog_paciente in self.pacientes_progreso.items() if p in self.pacientes 
+            )
+        else:
+            self.valid_solution = False
+
+
+    def _fases_en_orden_correcto(self, paciente: str, fases_paciente_progreso: Dict) -> bool:
+        """
+        Verifica si las fases están completas y en orden correcto
+        """
+        if paciente not in self.paciente_to_estudio_info:
+            return False 
+        
+        info_estudio = self.paciente_to_estudio_info[paciente]
+        orden_fases_definicion = info_estudio["orden_fases"]
+        
+        # Verificar que todas las fases estén programadas
+        if len(fases_paciente_progreso) != len(orden_fases_definicion):
+            return False
+
+        # Verificar orden correcto
+        fases_programadas_con_orden = []
+        for fase_nombre, hora_asignada in fases_paciente_progreso.items():
+            if fase_nombre not in orden_fases_definicion:
+                return False 
+            orden_definido = orden_fases_definicion[fase_nombre]
+            fases_programadas_con_orden.append((orden_definido, hora_asignada, fase_nombre)) 
+        
+        # Ordenar por el orden definido
+        fases_programadas_con_orden.sort(key=lambda x: x[0])
+        
+        # Verificar secuencia (1, 2, 3, ...)
+        for i, (orden, _, _) in enumerate(fases_programadas_con_orden):
+            if orden != i + 1:
+                return False 
+        
+        return True

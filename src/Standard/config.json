@@ -1,54 +1,69 @@
 {
+  "tipos_estudio": [
+    {
+      "nombre_estudio": "EstudioCardiologico",
+      "pacientes": [
+        "PacienteCardio1",
+        "PacienteCardio2",
+        "PacienteCardio3"
+      ],
+      "fases": [
+        "Cardio_Fase1_Recepcion",
+        "Cardio_Fase2_Eco",
+        "Cardio_Fase3_Informe"
+      ],
+      "orden_fases": {
+        "Cardio_Fase1_Recepcion": 1,
+        "Cardio_Fase2_Eco": 2,
+        "Cardio_Fase3_Informe": 3
+      },
+      "fases_duration": {
+        "Cardio_Fase1_Recepcion": 60,
+        "Cardio_Fase2_Eco": 60,
+        "Cardio_Fase3_Informe": 60
+      }
+    },{
+  "nombre_estudio": "EstudioNeurologico",
   "pacientes": [
-      "Paciente1",
-      "Paciente2",
-      "Paciente3",
-      "Paciente4",
-      "Paciente5",
-      "Paciente6",
-      "Paciente7",
-      "Paciente8"
-  ],
-  "consultas": [
-      "ConsultaA",
-      "ConsultaB",
-      "ConsultaC",
-      "ConsultaD"
-  ],
-  "horas": [
-      "09:00",
-      "10:00",
-      "11:00",
-      "12:00",
-      "13:00",
-      "14:00",
-      "15:00",
-      "16:00",
-      "17:00",
-      "18:00"
-  ],
-  "medicos": [
-      "MedicoX",
-      "MedicoY",
-      "MedicoZ",
-      "MedicoW"
+    "PacienteNeuro1",
+    "PacienteNeuro2",
+    "PacienteNeuro3",
+    "PacienteNeuro4"
   ],
   "fases": [
-      "Fase1",
-      "Fase2",
-      "Fase3",
-      "Fase4"
+    "Neuro_Fase1_Admision",
+    "Neuro_Fase2_EEG",
+    "Neuro_Fase3_Consulta",
+    "Neuro_Fase4_Informe"
   ],
   "orden_fases": {
-      "Fase1": 1,
-      "Fase2": 2,
-      "Fase3": 3,
-      "Fase4": 4
+    "Neuro_Fase1_Admision": 1,
+    "Neuro_Fase2_EEG": 2,
+    "Neuro_Fase3_Consulta": 3,
+    "Neuro_Fase4_Informe": 4
   },
   "fases_duration": {
-      "Fase1": 60,
-      "Fase2": 60,
-      "Fase3": 60,
-      "Fase4": 60
+    "Neuro_Fase1_Admision": 60,
+    "Neuro_Fase2_EEG": 60,
+    "Neuro_Fase3_Consulta": 60,
+    "Neuro_Fase4_Informe": 60
   }
+}
+  ],
+  "consultas": [
+    "ConsultaA",
+    "ConsultaB",
+    "ConsultaC",
+    "ConsultaD"
+  ],
+  "horas": [
+    "09:00", "10:00", "11:00", "12:00", "13:00",
+    "14:00", "15:00", "16:00", "17:00", "18:00"
+  ],
+  "medicos": [
+    "MedicoX",
+    "MedicoY",
+    "MedicoZ",
+    "MedicoW"
+  ]
 }
