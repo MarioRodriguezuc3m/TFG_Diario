@@ -16,39 +16,28 @@
         "Cardio_Fase1_Recepcion": 1,
         "Cardio_Fase2_Eco": 2,
         "Cardio_Fase3_Informe": 3
-      },
-      "fases_duration": {
-        "Cardio_Fase1_Recepcion": 60,
-        "Cardio_Fase2_Eco": 60,
-        "Cardio_Fase3_Informe": 60
       }
     },{
-  "nombre_estudio": "EstudioNeurologico",
-  "pacientes": [
-    "PacienteNeuro1",
-    "PacienteNeuro2",
-    "PacienteNeuro3",
-    "PacienteNeuro4"
-  ],
-  "fases": [
-    "Neuro_Fase1_Admision",
-    "Neuro_Fase2_EEG",
-    "Neuro_Fase3_Consulta",
-    "Neuro_Fase4_Informe"
-  ],
-  "orden_fases": {
-    "Neuro_Fase1_Admision": 1,
-    "Neuro_Fase2_EEG": 2,
-    "Neuro_Fase3_Consulta": 3,
-    "Neuro_Fase4_Informe": 4
-  },
-  "fases_duration": {
-    "Neuro_Fase1_Admision": 60,
-    "Neuro_Fase2_EEG": 60,
-    "Neuro_Fase3_Consulta": 60,
-    "Neuro_Fase4_Informe": 60
-  }
-}
+      "nombre_estudio": "EstudioNeurologico",
+      "pacientes": [
+        "PacienteNeuro1",
+        "PacienteNeuro2",
+        "PacienteNeuro3",
+        "PacienteNeuro4"
+      ],
+      "fases": [
+        "Neuro_Fase1_Admision",
+        "Neuro_Fase2_EEG",
+        "Neuro_Fase3_Consulta",
+        "Neuro_Fase4_Informe"
+      ],
+      "orden_fases": {
+        "Neuro_Fase1_Admision": 1,
+        "Neuro_Fase2_EEG": 2,
+        "Neuro_Fase3_Consulta": 3,
+        "Neuro_Fase4_Informe": 4
+      }
+    }
   ],
   "consultas": [
     "ConsultaA",
@@ -56,10 +45,9 @@
     "ConsultaC",
     "ConsultaD"
   ],
-  "horas": [
-    "09:00", "10:00", "11:00", "12:00", "13:00",
-    "14:00", "15:00", "16:00", "17:00", "18:00"
-  ],
+  "hora_inicio": "09:00",
+  "hora_fin": "17:00",
+  "intervalo_consultas_minutos": 60,
   "medicos": [
     "MedicoX",
     "MedicoY",

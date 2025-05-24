@@ -2,10 +2,38 @@ import plotly.figure_factory as ff
 import pandas as pd
 from datetime import datetime, timedelta
 import os
+import colorsys
+
+
+
+def generate_hsv_distinct_colors(n_colors):
+    """Genera n colores usando el espacio HSV con máxima separación de matiz"""
+    colors = []
+    for i in range(n_colors):
+        hue = i / n_colors
+        saturation = 0.8 + (i % 2) * 0.2
+        value = 0.8 + (i % 3) * 0.1
+        
+        rgb = colorsys.hsv_to_rgb(hue, saturation, value)
+        rgb_255 = tuple(int(c * 255) for c in rgb)
+        colors.append(f'rgb({rgb_255[0]},{rgb_255[1]},{rgb_255[2]})')
+    
+    return colors
+
+
+
+def create_phase_color_mapping(all_phase_names):
+    """Crea un mapeo completo de fases a colores distintos usando HSV"""
+    distinct_colors = generate_hsv_distinct_colors(len(all_phase_names))
+    color_mapping = {}
+    
+    for i, phase_name in enumerate(sorted(all_phase_names)):
+        color_mapping[phase_name] = distinct_colors[i]
+    
+    return color_mapping
 
 def plot_gantt_chart(best_solution, fases_duration, pacientes, medicos, consultas, 
                      output_filepath='/app/plots/schedule_gantt.png',
-                     phase_color_map=None, 
                      configured_start_hour=8, 
                      configured_end_hour=20):  
     """
@@ -66,16 +94,9 @@ def plot_gantt_chart(best_solution, fases_duration, pacientes, medicos, consulta
     df = df.sort_values(by=['Task_Sort_Key', 'Start'])
     df = df.drop(columns=['Task_Sort_Key'])
     
-    # Configurar colores
-    colors_for_plot = {}
-    if phase_color_map:
-        unique_resources_in_df = df['Resource'].unique()
-        for resource_name in unique_resources_in_df:
-            colors_for_plot[resource_name] = phase_color_map.get(resource_name, default_fallback_color)
-    else:
-        unique_resources_in_df = df['Resource'].unique()
-        for resource_name in unique_resources_in_df:
-            colors_for_plot[resource_name] = default_fallback_color
+    unique_resources_in_df = df['Resource'].unique()
+    
+    colors_for_plot = create_phase_color_mapping(unique_resources_in_df)
 
     fig = ff.create_gantt(
         df,

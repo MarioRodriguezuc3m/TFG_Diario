@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     from Standard.Graph import Graph
 
 class Ant:
-    def __init__(self, graph: "Graph", paciente_to_estudio_info: Dict[str, Dict], pacientes: List[str], alpha: float = 1.0, beta: float = 1.0):
+    def __init__(self, graph: "Graph", paciente_to_estudio_info: Dict[str, Dict], pacientes: List[str],duracion_consultas:int, alpha: float = 1.0, beta: float = 1.0):
         self.graph = graph
         self.alpha = alpha
         self.beta = beta
@@ -18,7 +18,7 @@ class Ant:
         
         self.pacientes = pacientes 
         self.pacientes_progreso = defaultdict(dict) # {paciente: {fase: hora}}
-        
+        self.duracion_consultas = duracion_consultas
         self.current_node: Tuple = None
         self.total_cost: float = 0.0
         self.valid_solution = False
@@ -78,67 +78,67 @@ class Ant:
 
 
     def calcular_heuristica(self, node_to_evaluate: Tuple) -> float:
-        paciente, consulta, hora_str, medico, fase = node_to_evaluate
+        paciente_eval, consulta_eval, hora_str_eval, medico_eval, fase_eval = node_to_evaluate
         
-        score = 10.0
+        score = 10.0 # Base score
         
-        if paciente not in self.paciente_to_estudio_info:
+        if paciente_eval not in self.paciente_to_estudio_info:
              return 0.1 
-
-        info_estudio_paciente_eval = self.paciente_to_estudio_info[paciente]
         
-        hora_parts = hora_str.split(':')
-        node_mins = int(hora_parts[0]) * 60 + int(hora_parts[1])
+        hora_parts_eval = hora_str_eval.split(':')
+        node_eval_mins = int(hora_parts_eval[0]) * 60 + int(hora_parts_eval[1])
         
+        # Verificar si el paciente del proximo nodo es el mismo que el del actual
         if self.current_node:
             curr_paciente, _, curr_hora_str, _, curr_fase = self.current_node
-            info_estudio_paciente_curr = self.paciente_to_estudio_info[curr_paciente]
-
-            current_hora_parts = curr_hora_str.split(':')
-            current_mins = int(current_hora_parts[0]) * 60 + int(current_hora_parts[1])
-            duracion_fase_actual = info_estudio_paciente_curr["fases_duration"][curr_fase]
             
-            if paciente == curr_paciente: # Mismo paciente
-                # Verificar superposición de tiempo
-                if node_mins < current_mins + duracion_fase_actual:
-                    score -= 20.0  # Penalización por superposición
+            if paciente_eval == curr_paciente: # Si es el mismo paciente
+                current_hora_parts = curr_hora_str.split(':')
+                current_node_mins = int(current_hora_parts[0]) * 60 + int(current_hora_parts[1])
+                current_node_end_mins = current_node_mins + self.duracion_consultas
+
+                # Penalización si el nodo a evaluar empieza ANTES
+                if node_eval_mins < current_node_end_mins:
+                     score -= 100.0 # Fuerte penalización por solapamiento del mismo paciente.
                 else:
-                    tiempo_espera = node_mins - (current_mins + duracion_fase_actual)
-                    if tiempo_espera <= 60: score += 10.0
-                    elif tiempo_espera <= 120: score += 6.0
-                    else: score -= min(10.0, (tiempo_espera - 120) / 60.0 * 2.0) 
+                    # Si el nodo a evaluar empieza DESPUÉS O AL MISMO TIEMPO que termina el actual.
+                    tiempo_espera_mismo_paciente = node_eval_mins - current_node_end_mins
+                    bonus_menor_tiempo_espera = 100.0 # Ajustable
+                    
+                    # Bonus por empezar la siguiente consulta lo antes posible: de 0 a 120 minutos de espera.
+                    if tiempo_espera_mismo_paciente <= 120: # Hasta 2 horas de espera
+                        # Factor de prontitud: 1.0 para espera 0, 0.0 para espera 120
+                        factor_prontitud = (120.0 - tiempo_espera_mismo_paciente) / 120.0
+                        score += factor_prontitud * bonus_menor_tiempo_espera
         
-        duracion_fase_eval = info_estudio_paciente_eval["fases_duration"][fase]
-        node_end_mins = node_mins + duracion_fase_eval
+        node_eval_end_mins = node_eval_mins + self.duracion_consultas
         
         medico_count_conflict = 0
         consulta_count_conflict = 0
         
+        # Chequear conflictos con nodos ya visitados por ESTA HORMIGA
         for v_node in self.visited:
             v_paciente, v_consulta, v_hora_str, v_medico, v_fase = v_node
             
-            if v_paciente not in self.paciente_to_estudio_info: continue 
-            info_estudio_paciente_visitado = self.paciente_to_estudio_info[v_paciente]
-
             v_hora_parts = v_hora_str.split(':')
             v_mins = int(v_hora_parts[0]) * 60 + int(v_hora_parts[1])
-            v_fase_duracion = info_estudio_paciente_visitado["fases_duration"][v_fase]
-            v_end_mins = v_mins + v_fase_duracion
+            v_end_mins = v_mins + self.duracion_consultas
             
-            # Comprobar superposición de tiempo
-            if node_mins < v_end_mins and v_mins < node_end_mins:
-                if v_medico == medico:
-                    score -= 15.0
+            # Comprobar superposición de tiempo entre el nodo a evaluar y un nodo visitado
+            if node_eval_mins < v_end_mins and v_mins < node_eval_end_mins: # Hay solapamiento temporal
+                if v_medico == medico_eval:
+                    score -= 100.0 
                     medico_count_conflict +=1
-                if v_consulta == consulta:
-                    score -= 15.0
+                if v_consulta == consulta_eval:
+                    score -= 100.0 
                     consulta_count_conflict +=1
         
         # Bonus si no hay conflictos
-        if medico_count_conflict == 0: score += 2.0
-        if consulta_count_conflict == 0: score += 2.0
+        if medico_count_conflict == 0: score += 3.0
+        if consulta_count_conflict == 0: score += 3.0
         
-        return max(0.1, score) 
+        return max(0.1, score) # Evitar heurística cero o negativa
+
 
     def move(self, node: Tuple):
         self.current_node = node

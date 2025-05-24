@@ -22,18 +22,18 @@ def construir_mapeo_paciente_info(tipos_estudio_data: List[Dict]) -> Dict:
             }
     return paciente_a_estudio_info
 
-def generar_nodos(config_data: Dict[str, Any]) -> List[Tuple]:
+def generar_nodos(config_data: Dict[str, Any], horas_disponibles: List[str]) -> List[Tuple]:
     """
     Genera todos los nodos posibles del grafo combinando cada parámetro
     para múltiples tipos de estudio. La información de pacientes, fases,
-    consultas, horas y médicos se extrae de config_data.
+    consultas, y médicos se extrae de config_data. Las horas disponibles
+    son pasadas como argumento.
     
     Cada nodo representa una posible asignación de:
     (paciente, consulta, hora, médico, fase)
     """
     nodos = []
     consultas = config_data["consultas"]
-    horas = config_data["horas"]
     medicos = config_data["medicos"]
 
     for estudio in config_data["tipos_estudio"]:
@@ -41,7 +41,7 @@ def generar_nodos(config_data: Dict[str, Any]) -> List[Tuple]:
         fases_estudio = estudio["fases"] 
         for p in pacientes_estudio:
             for c in consultas:
-                for h in horas:
+                for h in horas_disponibles:
                     for m in medicos:
                         for f in fases_estudio:
                             nodos.append((p, c, h, m, f))
@@ -77,13 +77,11 @@ def generar_aristas(nodos: List[Tuple], paciente_info: Dict[str, Dict[str, Any]]
             info_p2 = paciente_info.get(p2)
 
             if not info_p1 or not info_p2:
-                print(f"Advertencia: No se encontró info para P1 ('{p1}') o P2 ('{p2}')")
-                continue
+                raise ValueError(f"Información de paciente no encontrada para {p1} o {p2}")
             
             # Verificar que las fases pertenezcan a los estudios correspondientes
             if f1 not in info_p1["orden_fases"] or f2 not in info_p2["orden_fases"]:
-                print(f"Advertencia: Fase no pertenece al estudio del paciente. Nodo1: {nodo1}, Nodo2: {nodo2}")
-                continue
+                raise ValueError(f"Fase {f1} o {f2} no pertenece al estudio del paciente {p1} o {p2}")
 
             orden_fases_p1 = info_p1["orden_fases"]
             max_orden_p1 = info_p1["max_orden"]

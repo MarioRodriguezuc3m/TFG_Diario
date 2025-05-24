@@ -14,14 +14,15 @@ except ImportError:
 
 
 class ACO:
-    def __init__(self, graph: Graph, config_data: Dict, n_ants: int = 10, iterations: int = 100,
+    def __init__(self, graph: Graph, config_data: Dict, horas_disponibles: List, n_ants: int = 10, iterations: int = 100,
                  alpha: float = 1.0, beta: float = 3.0, rho: float = 0.1, Q: float = 1.0):
         self.graph = graph
         self.config_data = config_data
         
         self.tipos_estudio = config_data["tipos_estudio"]
         self.consultas = config_data["consultas"]
-        self.horas = config_data["horas"]
+        self.horas = horas_disponibles
+        self.duracion_consultas = config_data.get("intervalo_consultas_minutos")
         self.medicos = config_data["medicos"]
         
         self.paciente_to_estudio = {} 
@@ -33,8 +34,7 @@ class ACO:
                 self.paciente_to_estudio[paciente] = {
                     "nombre_estudio": estudio["nombre_estudio"],
                     "fases": estudio["fases"], 
-                    "orden_fases": estudio["orden_fases"], 
-                    "fases_duration": estudio["fases_duration"] 
+                    "orden_fases": estudio["orden_fases"],
                 }
         self.pacientes = list(_unique_pacientes_set)
         
@@ -53,7 +53,7 @@ class ACO:
         start_time = time.time()
         
         for iteration in range(self.iterations):
-            ants = [Ant(self.graph, self.paciente_to_estudio, self.pacientes, 
+            ants = [Ant(self.graph, self.paciente_to_estudio, self.pacientes,self.duracion_consultas,
                         self.alpha, self.beta) for _ in range(self.n_ants)]
             
             iteration_best_cost = float('inf')
@@ -171,13 +171,8 @@ class ACO:
             else:
                 inicio_min = hora_str_to_min_cache[hora_str]
                 
-            # Verificar que la duración de la fase está definida
-            duracion = estudio_info["fases_duration"].get(fase_nombre)
-            if duracion is None:
-                coste_total += 45000  # Penalización por duración no definida
-                continue
             
-            fin_min = inicio_min + duracion
+            fin_min = inicio_min + self.duracion_consultas
             orden_fase = estudio_info["orden_fases"].get(fase_nombre)
             if orden_fase is None:
                 coste_total += 46000  # Penalización por orden no definido
