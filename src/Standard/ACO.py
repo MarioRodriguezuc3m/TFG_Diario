@@ -116,9 +116,12 @@ class ACO:
                     self.graph.update_pheromone([temp_ant_for_pheromone], self.rho, self.Q)
 
             else:
+                print(f"Iteración {iteration}: No se encontró solución válida.")
                 # Evaporar feromonas si no hay solución válida
-                self.graph.evaporate_pheromone(self.rho)
+                self.graph.update_pheromone([], self.rho, self.Q)
 
+            if iteration % 10 == 0:  # Reducir frecuencia de prints
+                print(f"Iteración {iteration}/{self.iterations} - Mejor: {self.best_cost:.2f}")
             self.total_costs.append(self.best_cost if self.best_cost != float('inf') else iteration_best_cost)
 
         end_time = time.time()
@@ -252,47 +255,136 @@ class ACO:
                 orden_esperado += 1
         
         return coste_total if coste_total > 0 else 0.1  # Evitar coste cero
+        
+    def _identificar_asignaciones_conflictivas(self, solution: List[Tuple]) -> List[int]:
+        """
+        Identifica los índices de las asignaciones en la solución que tienen
+        conflictos directos de recursos (médico o consulta ocupados).
+        """
+        conflictive_indices = set()
+        if not solution or len(solution) < 2:
+            return []
+
+        # Cache para conversiones de hora y duraciones para eficiencia
+        hora_str_to_min_cache = {}
+        duracion_consulta_min = self.duracion_consultas  # Asumiendo que tienes esto en self
+
+        # Convertir todas las asignaciones a un formato más manejable con tiempos en minutos
+        processed_assignments = []
+        for i, asignacion in enumerate(solution):
+            paciente, consulta, hora_str, medico, fase = asignacion
+
+            if hora_str not in hora_str_to_min_cache:
+                try:
+                    hora_obj = datetime.datetime.strptime(hora_str, "%H:%M").time()
+                    inicio_min = hora_obj.hour * 60 + hora_obj.minute
+                    hora_str_to_min_cache[hora_str] = inicio_min
+                except ValueError:
+                    continue  # Ignorar asignación con hora inválida
+            else:
+                inicio_min = hora_str_to_min_cache[hora_str]
+
+            fin_min = inicio_min + duracion_consulta_min
+            processed_assignments.append({
+                'idx': i, 'paciente': paciente, 'consulta': consulta,
+                'medico': medico, 'fase': fase,
+                'inicio_min': inicio_min, 'fin_min': fin_min,
+                'original_tuple': asignacion
+            })
+
+        # Comprobar conflictos entre pares de asignaciones
+        for i in range(len(processed_assignments)):
+            asig1 = processed_assignments[i]
+            for j in range(i + 1, len(processed_assignments)):
+                asig2 = processed_assignments[j]
+
+                # Comprobar solapamiento temporal
+                overlap = (asig1['inicio_min'] < asig2['fin_min'] and
+                        asig2['inicio_min'] < asig1['fin_min'])
+
+                if overlap:
+                    # Conflicto de médico (diferentes pacientes, mismo médico)
+                    if asig1['medico'] == asig2['medico'] and asig1['paciente'] != asig2['paciente']:
+                        conflictive_indices.add(asig1['idx'])
+                        conflictive_indices.add(asig2['idx'])
+
+                    # Conflicto de consulta (diferentes pacientes, misma consulta)
+                    if asig1['consulta'] == asig2['consulta'] and asig1['paciente'] != asig2['paciente']:
+                        conflictive_indices.add(asig1['idx'])
+                        conflictive_indices.add(asig2['idx'])
+
+        return list(conflictive_indices)
+
 
     def local_search(self, solution: List[Tuple]) -> List[Tuple]:
-        current_best_solution = solution
-        current_best_cost = self.calcular_coste(solution)
+        current_best_solution = list(solution) # Trabajar con una copia
+        current_best_cost = self.calcular_coste(current_best_solution)
 
-        if current_best_cost == 0.1:  # Ya es óptima
-            return solution
+        if not current_best_solution or current_best_cost == 0.1:
+            return current_best_solution
 
-        # Intentar modificaciones aleatorias
-        for _ in range(min(len(solution) * 2, 20)):
-            if not current_best_solution: 
+        num_improvement_attempts = 15 # Limitar intentos
+
+        for attempt in range(num_improvement_attempts):
+            if not current_best_solution:
                 break
             
-            temp_solution = list(current_best_solution)
-            idx_to_change = random.randrange(len(temp_solution))
-            
-            paciente, consulta, hora_str, medico, fase = temp_solution[idx_to_change]
+            temp_solution = list(current_best_solution) # Copia para modificar en esta iteración de LS
 
-            # Cambiar un elemento aleatorio
-            change_type = random.choice(["hora", "medico", "consulta"])
+            # 1. Identificar asignaciones conflictivas
+            conflictive_indices = self._identificar_asignaciones_conflictivas(temp_solution)
+            
+            idx_to_change = -1
+            if conflictive_indices and random.random() < 0.9: # 90% de probabilidad de elegir un conflicto
+                idx_to_change = random.choice(conflictive_indices)
+            else: # Sino, o por probabilidad, elegir una aleatoria
+                if not temp_solution: continue # Evitar error si temp_solution está vacía
+                idx_to_change = random.randrange(len(temp_solution))
+
+            if idx_to_change == -1 or idx_to_change >= len(temp_solution): # Salvaguarda
+                continue
+
+            original_assignment = temp_solution[idx_to_change]
+            paciente, consulta, hora_str, medico, fase = original_assignment
+
+            # 2. Intentar cambiar un elemento aleatorio de la asignación seleccionada
+            change_options = []
+            # Cambiar hora
+            available_new_horas = [h for h in self.horas if h != hora_str]
+            if available_new_horas:
+                change_options.append(("hora", random.choice(available_new_horas)))
+            
+            # Cambiar médico
+            available_new_medicos = [m for m in self.medicos if m != medico]
+            if available_new_medicos:
+                change_options.append(("medico", random.choice(available_new_medicos)))
+
+            # Cambiar consulta
+            available_new_consultas = [c for c in self.consultas if c != consulta]
+            if available_new_consultas:
+                change_options.append(("consulta", random.choice(available_new_consultas)))
+
+            if not change_options:
+                continue # No hay opciones de cambio para esta asignación
+
+            change_type, new_value = random.choice(change_options)
             
             new_asig = None
             if change_type == "hora":
-                nueva_hora = random.choice(self.horas)
-                if nueva_hora != hora_str:
-                    new_asig = (paciente, consulta, nueva_hora, medico, fase)
+                new_asig = (paciente, consulta, new_value, medico, fase)
             elif change_type == "medico":
-                nuevo_medico = random.choice(self.medicos)
-                if nuevo_medico != medico:
-                    new_asig = (paciente, consulta, hora_str, nuevo_medico, fase)
+                new_asig = (paciente, consulta, hora_str, new_value, fase)
             elif change_type == "consulta":
-                nueva_consulta = random.choice(self.consultas)
-                if nueva_consulta != consulta:
-                    new_asig = (paciente, nueva_consulta, hora_str, medico, fase)
+                new_asig = (paciente, new_value, hora_str, medico, fase)
             
             if new_asig:
-                temp_solution[idx_to_change] = new_asig
-                new_cost = self.calcular_coste(temp_solution)
+                modified_solution_attempt = list(temp_solution) # Crear una nueva lista para el intento
+                modified_solution_attempt[idx_to_change] = new_asig
+                new_cost = self.calcular_coste(modified_solution_attempt)
+                
                 if new_cost < current_best_cost:
                     current_best_cost = new_cost
-                    current_best_solution = temp_solution
+                    current_best_solution = modified_solution_attempt # Actualizar la mejor solución de la búsqueda local
 
         return current_best_solution
 

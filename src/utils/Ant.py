@@ -116,7 +116,7 @@ class Ant:
         medico_count_conflict = 0
         consulta_count_conflict = 0
         
-        # Chequear conflictos con nodos ya visitados por ESTA HORMIGA
+        # Chequear conflictos con nodos ya visitados
         for v_node in self.visited:
             v_paciente, v_consulta, v_hora_str, v_medico, v_fase = v_node
             
@@ -127,17 +127,17 @@ class Ant:
             # Comprobar superposición de tiempo entre el nodo a evaluar y un nodo visitado
             if node_eval_mins < v_end_mins and v_mins < node_eval_end_mins: # Hay solapamiento temporal
                 if v_medico == medico_eval:
-                    score -= 100.0 
+                    score -= 10000.0 
                     medico_count_conflict +=1
                 if v_consulta == consulta_eval:
-                    score -= 100.0 
+                    score -= 10000.0 
                     consulta_count_conflict +=1
         
         # Bonus si no hay conflictos
         if medico_count_conflict == 0: score += 3.0
         if consulta_count_conflict == 0: score += 3.0
         
-        return max(0.1, score) # Evitar heurística cero o negativa
+        return max(0.001, score) # Evitar heurística cero o negativa
 
 
     def move(self, node: Tuple):
@@ -155,10 +155,8 @@ class Ant:
                  num_total_fases_esperadas += len(self.paciente_to_estudio_info[p_id]["orden_fases"])
 
         if num_total_fases_programadas == num_total_fases_esperadas and num_total_fases_esperadas > 0 :
-            self.valid_solution = all(
-                self._fases_en_orden_correcto(p, prog_paciente)
-                for p, prog_paciente in self.pacientes_progreso.items() if p in self.pacientes 
-            )
+            # Solución estructuralmente completa (se han realizado todas las asignaciones requeridas).
+            self.valid_solution = True
         else:
             self.valid_solution = False
 

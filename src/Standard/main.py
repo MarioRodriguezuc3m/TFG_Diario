@@ -97,7 +97,7 @@ if __name__ == "__main__":
         print("Error generando nodos. Verifique que haya pacientes, fases, consultas, médicos y horas disponibles.")
         exit(1)
         
-    aristas = generar_aristas(nodos, map_paciente_info)
+    aristas = generar_aristas(nodos, map_paciente_info,duracion_consulta_minutos=config_data['intervalo_consultas_minutos'], horas_disponibles_str_list=horas_disponibles)
     graph = Graph(nodos, aristas, initial_pheromone=1.0)
     
     # Configurar y ejecutar ACO
@@ -105,7 +105,7 @@ if __name__ == "__main__":
         graph=graph,
         config_data=config_data,
         horas_disponibles=horas_disponibles,
-        n_ants=20, iterations=50, alpha=1.0, beta=2.5, rho=0.05, Q=100.0
+        n_ants=20, iterations=100, alpha=1.0, beta=4.0, rho=0.05, Q=1000.0
     )
     
     print("Ejecutando ACO...")
