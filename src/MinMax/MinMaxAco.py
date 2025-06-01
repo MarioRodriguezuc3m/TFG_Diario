@@ -17,7 +17,6 @@ class MinMaxACO(ACO):
                  beta: float = 3.0,
                  rho: float = 0.1,
                  Q: float = 1.0):
-
         super().__init__(graph=graph,
                          config_data=config_data,
                          horas_disponibles=horas_disponibles,
@@ -31,6 +30,9 @@ class MinMaxACO(ACO):
         self.graph: MinMaxGraph = graph
 
     def run(self):
+        """
+        Ejecuta el ciclo principal del algoritmo MinMaxACO, incluyendo la búsqueda local y la actualización de feromonas.
+        """
         start_time = time.time()
 
         for iteration_num in range(self.iterations):
@@ -123,13 +125,16 @@ class MinMaxACO(ACO):
             
             self.total_costs.append(cost_to_log)
 
-            if iteration_num % 10 == 0:  # Reducir frecuencia de prints
+            if iteration_num % 10 == 0:  # Reducir frecuencia de mensajes
                 print(f"Iteración {iteration_num}/{self.iterations} - Mejor: {self.best_cost:.2f}")
 
         self.execution_time = time.time() - start_time
         return self.best_solution, self.best_cost
 
     def plot_convergence(self):
+        """
+        Genera y guarda un gráfico de la convergencia del algoritmo MinMaxACO.
+        """
         if not self.total_costs or all(c == float('inf') for c in self.total_costs):
             print("No hay datos válidos para la gráfica de convergencia.")
             return

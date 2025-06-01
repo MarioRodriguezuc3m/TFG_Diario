@@ -10,6 +10,10 @@ from datetime import datetime, timedelta, time
 from typing import List
 
 def get_configuration(config_path='/app/src/Standard/config.json'):
+    """
+    Carga y valida la configuración desde el archivo JSON especificado.
+    Devuelve el diccionario de configuración si es válido, o None si hay errores.
+    """
     try:
         with open(config_path, 'r') as file:
             config = json.load(file)
@@ -45,7 +49,9 @@ def get_configuration(config_path='/app/src/Standard/config.json'):
         return None
 
 def generar_horas_disponibles(hora_inicio_str: str, hora_fin_str: str, intervalo_minutos: int) -> List[str]:
-    """Genera una lista de strings de tiempo ("HH:MM") entre hora_inicio y hora_fin con el intervalo dado."""
+    """
+    Genera una lista de strings de tiempo ("HH:MM") entre hora_inicio y hora_fin con el intervalo dado.
+    """
     horas = []
     try:
         start_time_obj = datetime.strptime(hora_inicio_str, "%H:%M").time()
@@ -69,6 +75,10 @@ def generar_horas_disponibles(hora_inicio_str: str, hora_fin_str: str, intervalo
     return horas
 
 if __name__ == "__main__":
+    """
+    Punto de entrada principal del programa. Carga la configuración, genera los componentes del grafo,
+    ejecuta el algoritmo ACO y muestra los resultados.
+    """
     config_file_path = '/app/src/Standard/config.json'
     config_data = get_configuration(config_file_path)
     
@@ -97,7 +107,7 @@ if __name__ == "__main__":
         print("Error generando nodos. Verifique que haya pacientes, fases, consultas, médicos y horas disponibles.")
         exit(1)
         
-    aristas = generar_aristas(nodos, map_paciente_info,duracion_consulta_minutos=config_data['intervalo_consultas_minutos'], horas_disponibles_str_list=horas_disponibles)
+    aristas = generar_aristas(nodos, map_paciente_info, duracion_consulta_minutos=config_data['intervalo_consultas_minutos'], horas_disponibles_str_list=horas_disponibles)
     graph = Graph(nodos, aristas, initial_pheromone=1.0)
     
     # Configurar y ejecutar ACO
@@ -139,14 +149,14 @@ if __name__ == "__main__":
                 for asign_tuple_ordenada in asignaciones_ordenadas:
                     _, consulta, hora, medico, fase = asign_tuple_ordenada
                     orden = info_estudio_paciente['orden_fases'].get(fase, "N/A")
-                    duracion = intervalo_global_min # New way
+                    duracion = intervalo_global_min
                     print(f"  {orden}. {fase} - {hora} ({duracion}min) - {consulta} - {medico}")
             else:
-                print(f"  Info de estudio no encontrada")
+                print(f"  Información de estudio no encontrada")
         
         print(f"\nCosto total: {best_cost:.2f}")
         if aco.execution_time is not None:
-            print(f"Tiempo ejecución: {aco.execution_time:.2f}s")
+            print(f"Tiempo de ejecución: {aco.execution_time:.2f}s")
 
         # Generar gráfico de Gantt
         if plot_gantt_chart:
@@ -209,6 +219,6 @@ if __name__ == "__main__":
                 import traceback
                 traceback.print_exc()
     else:
-        print("\nNo se encontró solución válida.")
+        print("\nNo se encontró una solución válida.")
         if aco.execution_time is not None:
-            print(f"Tiempo ejecución: {aco.execution_time:.2f}s")
+            print(f"Tiempo de ejecución: {aco.execution_time:.2f}s")

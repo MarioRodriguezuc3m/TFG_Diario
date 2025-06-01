@@ -10,6 +10,10 @@ from datetime import datetime, timedelta, time
 from typing import List
 
 def get_configuration(config_path='/app/src/MinMax/config.json'):
+    """
+    Carga y valida la configuración desde el archivo JSON especificado.
+    Devuelve el diccionario de configuración si es válido, o None si hay errores.
+    """
     try:
         with open(config_path, 'r') as file:
             config = json.load(file)
@@ -45,7 +49,9 @@ def get_configuration(config_path='/app/src/MinMax/config.json'):
         return None
 
 def generar_horas_disponibles(hora_inicio_str: str, hora_fin_str: str, intervalo_minutos: int) -> List[str]:
-    """Genera una lista de strings de tiempo ("HH:MM") entre hora_inicio y hora_fin con el intervalo dado."""
+    """
+    Genera una lista de strings de tiempo ("HH:MM") entre hora_inicio y hora_fin con el intervalo dado.
+    """
     horas = []
     try:
         start_time_obj = datetime.strptime(hora_inicio_str, "%H:%M").time()
@@ -97,14 +103,14 @@ if __name__ == "__main__":
         print("Error generando nodos. Verifique que haya pacientes, fases, consultas, médicos y horas disponibles.")
         exit(1)
 
-    aristas = generar_aristas(nodos, map_paciente_info,duracion_consulta_minutos=config_data['intervalo_consultas_minutos'], horas_disponibles_str_list=horas_disponibles)
+    aristas = generar_aristas(nodos, map_paciente_info, duracion_consulta_minutos=config_data['intervalo_consultas_minutos'], horas_disponibles_str_list=horas_disponibles)
 
-    # Use MinMaxGraph
+    # Usar MinMaxGraph
     min_max_graph = MinMaxGraph(
         nodes=nodos,
         edges=aristas,
         pheromone_max=10.0,  # Valor máximo de feromonas (tau_max)
-        pheromone_min=0.1,   # Valor minimo de feromonas (tau_min)
+        pheromone_min=0.1,   # Valor mínimo de feromonas (tau_min)
     )
 
     # Configurar y ejecutar MinMaxACO
@@ -118,7 +124,6 @@ if __name__ == "__main__":
     print("Ejecutando MinMaxACO...")
     best_solution, best_cost = aco_minmax.run()
     aco_minmax.plot_convergence()
-
 
     if best_solution:
         # Agrupar asignaciones por paciente

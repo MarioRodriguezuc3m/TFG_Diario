@@ -8,6 +8,9 @@ if TYPE_CHECKING:
 
 class Ant:
     def __init__(self, graph: "Graph", paciente_to_estudio_info: Dict[str, Dict], pacientes: List[str],duracion_consultas:int, alpha: float = 1.0, beta: float = 1.0):
+        """
+        Inicializa una hormiga para el algoritmo ACO.
+        """
         self.graph = graph
         self.alpha = alpha
         self.beta = beta
@@ -24,6 +27,9 @@ class Ant:
         self.valid_solution = False
 
     def choose_next_node(self) -> Tuple:
+        """
+        Elige el siguiente nodo a visitar basado en la probabilidad ponderada por feromonas y heurística.
+        """
         if self.current_node is None:
             # Elegir nodos iniciales válidos (primera fase del estudio)
             valid_initial_nodes = [
@@ -78,6 +84,9 @@ class Ant:
 
 
     def calcular_heuristica(self, node_to_evaluate: Tuple) -> float:
+        """
+        Calcula la heurística para un nodo candidato.
+        """
         paciente_eval, consulta_eval, hora_str_eval, medico_eval, fase_eval = node_to_evaluate
         
         score = 10.0 # Base score
@@ -141,6 +150,9 @@ class Ant:
 
 
     def move(self, node: Tuple):
+        """
+        Mueve la hormiga al nodo especificado y actualiza el progreso.
+        """
         self.current_node = node
         self.visited.append(node)
         paciente, _, hora, _ , fase = node
@@ -163,7 +175,7 @@ class Ant:
 
     def _fases_en_orden_correcto(self, paciente: str, fases_paciente_progreso: Dict) -> bool:
         """
-        Verifica si las fases están completas y en orden correcto
+        Verifica si las fases están completas y en orden correcto.
         """
         if paciente not in self.paciente_to_estudio_info:
             return False 

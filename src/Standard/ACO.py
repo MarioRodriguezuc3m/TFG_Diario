@@ -16,6 +16,9 @@ except ImportError:
 class ACO:
     def __init__(self, graph: Graph, config_data: Dict, horas_disponibles: List, n_ants: int = 10, iterations: int = 100,
                  alpha: float = 1.0, beta: float = 3.0, rho: float = 0.1, Q: float = 1.0):
+        """
+        Inicializa el objeto ACO con los parámetros y datos necesarios.
+        """
         self.graph = graph
         self.config_data = config_data
         
@@ -50,7 +53,10 @@ class ACO:
         self.execution_time = None
 
     def run(self):
-        start_time = time.time()
+        """
+        Ejecuta el ciclo principal del algoritmo ACO, incluyendo la búsqueda local y la actualización de feromonas.
+        """
+        tiempo_inicio = time.time()
         
         for iteration in range(self.iterations):
             ants = [Ant(self.graph, self.paciente_to_estudio, self.pacientes,self.duracion_consultas,
@@ -124,8 +130,8 @@ class ACO:
                 print(f"Iteración {iteration}/{self.iterations} - Mejor: {self.best_cost:.2f}")
             self.total_costs.append(self.best_cost if self.best_cost != float('inf') else iteration_best_cost)
 
-        end_time = time.time()
-        self.execution_time = end_time - start_time
+        tiempo_fin = time.time()
+        self.execution_time = tiempo_fin - tiempo_inicio
         
         return self.best_solution, self.best_cost
 
@@ -210,11 +216,11 @@ class ACO:
             if tipo_evento == 'start':
                 # Al iniciar una fase, verificar si hay conflicto
                 if medicos_ocupados[medico_evento] > 0:
-                    coste_total += 2000  # Médico ya ocupado
+                    coste_total += 20000  # Médico ya ocupado
                 medicos_ocupados[medico_evento] += 1
                 
                 if consultas_ocupadas[consulta_evento] > 0:
-                    coste_total += 2000  # Consulta ya ocupada
+                    coste_total += 20000  # Consulta ya ocupada
                 consultas_ocupadas[consulta_evento] += 1
             else:  # 'end'
                 # Al terminar una fase, liberar recursos
@@ -315,8 +321,10 @@ class ACO:
 
         return list(conflictive_indices)
 
-
     def local_search(self, solution: List[Tuple]) -> List[Tuple]:
+        """
+        Realiza una búsqueda local sobre la solución dada para intentar mejorar el coste.
+        """
         current_best_solution = list(solution) # Trabajar con una copia
         current_best_cost = self.calcular_coste(current_best_solution)
 
@@ -389,6 +397,9 @@ class ACO:
         return current_best_solution
 
     def plot_convergence(self):
+        """
+        Genera y guarda un gráfico de la convergencia del algoritmo ACO.
+        """
         if not self.total_costs:
             print("No hay datos para graficar convergencia.")
             return
@@ -411,4 +422,7 @@ class ACO:
         plt.close()
 
     def get_execution_time(self):
+        """
+        Devuelve el tiempo de ejecución del algoritmo.
+        """
         return self.execution_time

@@ -36,7 +36,6 @@ def generar_nodos(config_data: Dict[str, Any],
     nodos = []
     consultas = config_data["consultas"]
     medicos = config_data["medicos"]
-    # intervalo_minutos = config_data["intervalo_consultas_minutos"] # No se usa directamente aquí, pero sí para la lógica conceptual
 
     map_hora_to_idx = {hora_str: idx for idx, hora_str in enumerate(horas_disponibles)}
     num_total_slots_disponibles = len(horas_disponibles)
@@ -73,7 +72,7 @@ def generar_nodos(config_data: Dict[str, Any],
                         for m in medicos:
                             nodos.append((p, c, h_str, m, f_nombre))
 
-    print(f"Generated {len(nodos)} nodes (optimized with initial viability check).")
+    print(f"Se han generado: {len(nodos)} nodos.")
     return nodos
 
 def generar_aristas(nodos: List[Tuple], 
@@ -92,7 +91,7 @@ def generar_aristas(nodos: List[Tuple],
         print("No hay nodos para generar aristas.")
         return aristas
         
-    print(f"Generating aristas for {num_nodos} nodes...")
+    print(f"Generando aristas para {num_nodos} nodos...")
 
     horas_en_minutos_cache = {}
     for h_str in horas_disponibles_str_list: 
@@ -169,5 +168,5 @@ def generar_aristas(nodos: List[Tuple],
                     aristas[nodo1].append(nodo2)
 
 
-    print(f"Generated {sum(len(v) for v in aristas.values())} aristas.")
+    print(f"Gemeradas {sum(len(v) for v in aristas.values())} aristas.")
     return aristas

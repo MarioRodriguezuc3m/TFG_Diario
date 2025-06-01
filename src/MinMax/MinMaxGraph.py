@@ -8,8 +8,10 @@ class MinMaxGraph(Graph):
                  edges: Dict[Tuple, List[Tuple]],
                  pheromone_max: float = 100.0,  # tau_max
                  pheromone_min: float = 0.1,    # tau_min
-                 initial_pheromone_value: Optional[float] = None): # Este puede ser ignorado o usado para tau_max
-
+                 initial_pheromone_value: Optional[float] = None):
+        """
+        Inicializa el grafo MinMax con límites superior e inferior de feromonas.
+        """
         init_pher_val_for_super = pheromone_max 
 
         super().__init__(nodes, edges, initial_pheromone=init_pher_val_for_super)
@@ -19,6 +21,9 @@ class MinMaxGraph(Graph):
 
 
     def update_pheromone(self, best_ant: Optional[Ant], rho: float, Q: float):
+        """
+        Actualiza las feromonas aplicando los límites Min-Max.
+        """
         ants_for_super_update: List[Ant] = []
         if best_ant and best_ant.valid_solution and best_ant.total_cost > 0:
             ants_for_super_update.append(best_ant)
@@ -31,7 +36,7 @@ class MinMaxGraph(Graph):
             self.current_base_pheromone = max(self.pheromone_min, self.current_base_pheromone)
             self.current_base_pheromone = min(self.pheromone_max, self.current_base_pheromone)
 
-        #Aplicar límites a todas las feromonas explícitas en el diccionario self.pheromone
+        # Aplicar límites a todas las feromonas explícitas en el diccionario self.pheromone
         for edge in list(self.pheromone.keys()): # Iterar sobre una copia de las claves
             current_val = self.pheromone[edge]
             limited_val = max(self.pheromone_min, current_val)
