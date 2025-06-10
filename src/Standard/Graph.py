@@ -6,8 +6,8 @@ class Graph:
     def __init__(self, nodes: List[Tuple], edges: Dict[Tuple, List[Tuple]], initial_pheromone: float = 1.0):
         self.nodes = nodes
         self.edges = edges
-        self.initial_pheromone = initial_pheromone # El valor original de inicio
-        self.current_base_pheromone = initial_pheromone # El nivel base que decae
+        self.initial_pheromone = initial_pheromone
+        self.current_base_pheromone = initial_pheromone 
         self.pheromone: Dict[Tuple[Tuple, Tuple], float] = {} 
         print("Graph initialized with nodes and edges.")
 

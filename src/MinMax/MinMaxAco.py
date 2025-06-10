@@ -11,6 +11,7 @@ class MinMaxACO(ACO):
                  graph: MinMaxGraph, 
                  config_data: Dict,        
                  horas_disponibles: List[str],
+                 lista_personal_instancias: List[str],
                  n_ants: int = 10,
                  iterations: int = 100,
                  alpha: float = 1.0,
@@ -19,6 +20,7 @@ class MinMaxACO(ACO):
                  Q: float = 1.0):
         super().__init__(graph=graph,
                          config_data=config_data,
+                        lista_personal_instancias=lista_personal_instancias,
                          horas_disponibles=horas_disponibles,
                          n_ants=n_ants,
                          iterations=iterations,
@@ -125,7 +127,7 @@ class MinMaxACO(ACO):
             
             self.total_costs.append(cost_to_log)
 
-            if iteration_num % 10 == 0:  # Reducir frecuencia de mensajes
+            if iteration_num % 10 == 0:
                 print(f"Iteración {iteration_num}/{self.iterations} - Mejor: {self.best_cost:.2f}")
 
         self.execution_time = time.time() - start_time

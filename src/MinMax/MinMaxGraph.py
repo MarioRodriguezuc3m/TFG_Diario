@@ -32,12 +32,12 @@ class MinMaxGraph(Graph):
         super().update_pheromone(ants=ants_for_super_update, rho=rho, Q=Q)
 
         # Aplicar los límites Min-Max a todas las feromonas gestionadas.
-        if hasattr(self, 'current_base_pheromone'): # Debería existir por la herencia
+        if hasattr(self, 'current_base_pheromone'):
             self.current_base_pheromone = max(self.pheromone_min, self.current_base_pheromone)
             self.current_base_pheromone = min(self.pheromone_max, self.current_base_pheromone)
 
         # Aplicar límites a todas las feromonas explícitas en el diccionario self.pheromone
-        for edge in list(self.pheromone.keys()): # Iterar sobre una copia de las claves
+        for edge in list(self.pheromone.keys()):
             current_val = self.pheromone[edge]
             limited_val = max(self.pheromone_min, current_val)
             limited_val = min(self.pheromone_max, limited_val)

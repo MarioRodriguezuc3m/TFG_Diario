@@ -24,18 +24,21 @@ def construir_mapeo_paciente_info(tipos_estudio_data: List[Dict]) -> Dict:
     return paciente_a_estudio_info
 
 def generar_nodos(config_data: Dict[str, Any], 
-                  horas_disponibles: List[str]
+                  horas_disponibles: List[str],
+                  lista_personal_instancias: List[str]
                   ) -> List[Tuple]:
     """
     Genera nodos posibles del grafo. Optimizado para solo considerar
     fases relevantes y horas de inicio viables para completar el estudio.
+    Para cada fase solo se crea un nodo si el personal asignado puede realizarla.
     
     Cada nodo representa una posible asignación de:
-    (paciente, consulta, hora, médico, fase)
+    (paciente, consulta, hora, personal, fase)
     """
     nodos = []
     consultas = config_data["consultas"]
-    medicos = config_data["medicos"]
+    
+    cargos_fases_config = config_data["cargos"]
 
     map_hora_to_idx = {hora_str: idx for idx, hora_str in enumerate(horas_disponibles)}
     num_total_slots_disponibles = len(horas_disponibles)
@@ -69,8 +72,17 @@ def generar_nodos(config_data: Dict[str, Any],
                                 # Si no hay suficientes slots restantes para completar el estudio, se omite esta hora
                                 break
                         
-                        for m in medicos:
-                            nodos.append((p, c, h_str, m, f_nombre))
+                        for personal_instancia in lista_personal_instancias:
+                            # Extraer el rol de la instancia de personal (e.g., "MG" de "MG_1")
+                            rol_actual = personal_instancia.split('_')[0]
+                            
+                            # Verificar si el rol actual puede realizar la fase actual
+                            if rol_actual not in cargos_fases_config or \
+                               f_nombre not in cargos_fases_config[rol_actual]:
+                                continue # Este personal/rol no puede hacer esta fase
+                            
+                            # Si el personal puede realizar la fase, se crea el nodo
+                            nodos.append((p, c, h_str, personal_instancia, f_nombre))
 
     print(f"Se han generado: {len(nodos)} nodos.")
     return nodos
@@ -105,7 +117,6 @@ def generar_aristas(nodos: List[Tuple],
 
     for i, nodo1 in enumerate(nodos):
         processed_nodes_count += 1
-        # Imprimir progreso con menos frecuencia para no ralentizar demasiado
         if processed_nodes_count % (max(1, num_nodos // 10)) == 0 or processed_nodes_count == num_nodos : 
              print(f"  Aristas: Procesando nodo Origen {processed_nodes_count}/{num_nodos} ({(processed_nodes_count/num_nodos*100):.1f}%) - Aristas encontradas: {sum(len(v) for v in aristas.values())}")
         
@@ -167,6 +178,5 @@ def generar_aristas(nodos: List[Tuple],
                 if es_ultima_fase_p1 and es_primera_fase_p2:
                     aristas[nodo1].append(nodo2)
 
-
-    print(f"Gemeradas {sum(len(v) for v in aristas.values())} aristas.")
+    print(f"Generadas {sum(len(v) for v in aristas.values())} aristas.")
     return aristas

@@ -28,7 +28,7 @@ class Ant:
 
     def choose_next_node(self) -> Tuple:
         """
-        Elige el siguiente nodo a visitar basado en la probabilidad ponderada por feromonas y heurística.
+        Elige el siguiente nodo a visitar.
         """
         if self.current_node is None:
             # Elegir nodos iniciales válidos (primera fase del estudio)
@@ -43,9 +43,9 @@ class Ant:
             
             # Filtrar candidatos válidos
             filtered_candidates = []
-            for node in candidates:
-                paciente_candidato = node[0]
-                fase_candidata = node[4]
+            for node_candidate in candidates:
+                paciente_candidato = node_candidate[0]
+                fase_candidata = node_candidate[4]
 
                 if paciente_candidato not in self.paciente_to_estudio_info:
                     continue 
@@ -53,14 +53,14 @@ class Ant:
                 info_estudio_candidato = self.paciente_to_estudio_info[paciente_candidato]
                 
                 # Evitar pacientes que ya completaron todas las fases
-                if len(self.pacientes_progreso[paciente_candidato]) >= len(info_estudio_candidato["orden_fases"]):
+                if len(self.pacientes_progreso.get(paciente_candidato, {})) >= len(info_estudio_candidato["orden_fases"]):
                     continue
                 
-                # Evitar programar la misma fase dos veces
-                if fase_candidata in self.pacientes_progreso[paciente_candidato]:
+                # Evitar programar la misma fase dos veces para el mismo paciente
+                if fase_candidata in self.pacientes_progreso.get(paciente_candidato, {}):
                     continue
                 
-                filtered_candidates.append(node)
+                filtered_candidates.append(node_candidate)
 
             if not filtered_candidates:
                 return None
@@ -77,19 +77,26 @@ class Ant:
                 candidate_list.append(node)
                 probabilities.append(candidate_weight)
                 total_prob_weight += candidate_weight
+            
+            if total_prob_weight == 0: # Si todos los pesos son 0, elegir aleatoriamente
+                 return random.choice(candidate_list) if candidate_list else None
 
-            # Normalizar y elegir
+
             normalized_probabilities = [p / total_prob_weight for p in probabilities]
-            return random.choices(candidate_list, weights=normalized_probabilities, k=1)[0]
+            try:
+                chosen_node = random.choices(candidate_list, weights=normalized_probabilities, k=1)[0]
+                return chosen_node
+            except ValueError as e:
+                return random.choice(candidate_list) if candidate_list else None
 
 
     def calcular_heuristica(self, node_to_evaluate: Tuple) -> float:
         """
         Calcula la heurística para un nodo candidato.
         """
-        paciente_eval, consulta_eval, hora_str_eval, medico_eval, fase_eval = node_to_evaluate
+        paciente_eval, consulta_eval, hora_str_eval, personal_instancia_eval, fase_eval = node_to_evaluate
         
-        score = 10.0 # Base score
+        score = 10.0 # Punutacion base
         
         if paciente_eval not in self.paciente_to_estudio_info:
              return 0.1 
@@ -112,7 +119,7 @@ class Ant:
                 else:
                     # Si el nodo a evaluar empieza DESPUÉS O AL MISMO TIEMPO que termina el actual.
                     tiempo_espera_mismo_paciente = node_eval_mins - current_node_end_mins
-                    bonus_menor_tiempo_espera = 100.0 # Ajustable
+                    bonus_menor_tiempo_espera = 100.0
                     
                     # Bonus por empezar la siguiente consulta lo antes posible: de 0 a 120 minutos de espera.
                     if tiempo_espera_mismo_paciente <= 120: # Hasta 2 horas de espera
@@ -122,12 +129,9 @@ class Ant:
         
         node_eval_end_mins = node_eval_mins + self.duracion_consultas
         
-        medico_count_conflict = 0
-        consulta_count_conflict = 0
-        
         # Chequear conflictos con nodos ya visitados
         for v_node in self.visited:
-            v_paciente, v_consulta, v_hora_str, v_medico, v_fase = v_node
+            v_paciente, v_consulta, v_hora_str, v_personal_instancia, v_fase = v_node
             
             v_hora_parts = v_hora_str.split(':')
             v_mins = int(v_hora_parts[0]) * 60 + int(v_hora_parts[1])
@@ -135,18 +139,12 @@ class Ant:
             
             # Comprobar superposición de tiempo entre el nodo a evaluar y un nodo visitado
             if node_eval_mins < v_end_mins and v_mins < node_eval_end_mins: # Hay solapamiento temporal
-                if v_medico == medico_eval:
+                if v_personal_instancia == personal_instancia_eval: # Conflicto de la misma instancia de personal
                     score -= 10000.0 
-                    medico_count_conflict +=1
-                if v_consulta == consulta_eval:
+                if v_consulta == consulta_eval: # Conflicto de la misma consulta
                     score -= 10000.0 
-                    consulta_count_conflict +=1
         
-        # Bonus si no hay conflictos
-        if medico_count_conflict == 0: score += 3.0
-        if consulta_count_conflict == 0: score += 3.0
-        
-        return max(0.001, score) # Evitar heurística cero o negativa
+        return max(0.001, score) 
 
 
     def move(self, node: Tuple):
@@ -167,40 +165,7 @@ class Ant:
                  num_total_fases_esperadas += len(self.paciente_to_estudio_info[p_id]["orden_fases"])
 
         if num_total_fases_programadas == num_total_fases_esperadas and num_total_fases_esperadas > 0 :
-            # Solución estructuralmente completa (se han realizado todas las asignaciones requeridas).
+            # Se han realizado todas las asignaciones requeridas).
             self.valid_solution = True
         else:
             self.valid_solution = False
-
-
-    def _fases_en_orden_correcto(self, paciente: str, fases_paciente_progreso: Dict) -> bool:
-        """
-        Verifica si las fases están completas y en orden correcto.
-        """
-        if paciente not in self.paciente_to_estudio_info:
-            return False 
-        
-        info_estudio = self.paciente_to_estudio_info[paciente]
-        orden_fases_definicion = info_estudio["orden_fases"]
-        
-        # Verificar que todas las fases estén programadas
-        if len(fases_paciente_progreso) != len(orden_fases_definicion):
-            return False
-
-        # Verificar orden correcto
-        fases_programadas_con_orden = []
-        for fase_nombre, hora_asignada in fases_paciente_progreso.items():
-            if fase_nombre not in orden_fases_definicion:
-                return False 
-            orden_definido = orden_fases_definicion[fase_nombre]
-            fases_programadas_con_orden.append((orden_definido, hora_asignada, fase_nombre)) 
-        
-        # Ordenar por el orden definido
-        fases_programadas_con_orden.sort(key=lambda x: x[0])
-        
-        # Verificar secuencia (1, 2, 3, ...)
-        for i, (orden, _, _) in enumerate(fases_programadas_con_orden):
-            if orden != i + 1:
-                return False 
-        
-        return True
