@@ -128,6 +128,23 @@ def get_aco_params(params_path='aco_params.json'):
             raise Exception(f"Advertencia: Las claves del archivo de parámetros no son correctas.\n"
                   f"Esperadas: {sorted(expected_keys)}\n"
                   f"Encontradas: {sorted(params_keys)}\n")
+        # Se validan los tipos de datos y valores
+        if not isinstance(params["n_ants"], int) or params["n_ants"] <= 0:
+            raise Exception("'n_ants' debe ser un entero positivo.")
+        if not isinstance(params["iterations"], int) or params["iterations"] <= 0:
+            raise Exception("'iterations' debe ser un entero positivo.")
+        if not isinstance(params["alpha"], (int, float)) or params["alpha"] < 0:
+            raise Exception("'alpha' debe ser un número no negativo.")
+        if not isinstance(params["beta"], (int, float)) or params["beta"] < 0:
+            raise Exception("'beta' debe ser un número no negativo.")
+        if not isinstance(params["rho"], (int, float)) or not (0 < params["rho"] < 1):
+            raise Exception("'rho' debe ser un número entre 0 y 1 (no inclusivo).")
+        if not isinstance(params["Q"], (int, float)) or params["Q"] <= 0:
+            raise Exception("'Q' debe ser un número positivo.")
+        if not isinstance(params["pheromone_max"], (int, float)) or params["pheromone_max"] <= 0:
+            raise Exception("'pheromone_max' debe ser un número positivo.")
+        if not isinstance(params["pheromone_min"], (int, float)) or params["pheromone_min"] < 0:
+            raise Exception("'pheromone_min' debe ser un número no negativo.")
         return params
     except Exception as e:
         raise Exception(f"Error cargando parámetros de ACO: {e}")
