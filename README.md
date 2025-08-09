@@ -121,6 +121,13 @@ Define los hiperparámetros del algoritmo ACO.
     "Q": 1000.0
 }
 ```
+En el params_config.json de la versión MinMax adicionalmente habrá dos valores más que representan el valor máximo y mínimo de los niveles de feromonas que se podrán depositar en las aristas del grafo. Estos parámetros son exclusivos de esta versión del ACO.
+```json
+{
+    "pheromone_max":10.0,
+    "pheromone_min": 0.1
+}
+```
 ### `config.json`
 
 Contiene todos los parámetros para configurar el escenario de planificación (estudios, personal, consultas, etc.).
@@ -131,7 +138,13 @@ Contiene todos los parámetros para configurar el escenario de planificación (e
       "nombre_estudio": "Estudio Polio",
       "pacientes": ["P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8"],
       "fases": ["Admision", "Historia", "Prueba_Medica", "Laboratorio", "Entrega_Resultados", "Cierre"],
-      "orden_fases": {"Admision": 1, "Historia": 2, "Prueba_Medica": 3, "Laboratorio": 4, "Entrega_Resultados": 5, "Cierre": 6}
+      "orden_fases": { "Admision": 1, "Historia": 2, "Prueba_Medica": 3, "Laboratorio": 4, "Entrega_Resultados": 5, "Cierre": 6 }
+    },
+    {
+      "nombre_estudio": "Estudio Diabetes",
+      "pacientes": ["P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8"],
+      "fases": ["Admision", "Historia", "Analisis_Sangre", "Revisión_Medica", "Entrega_Resultados", "Cierre"],
+      "orden_fases": { "Admision": 1, "Historia": 2, "Analisis_Sangre": 3, "Revisión_Medica": 4, "Entrega_Resultados": 5, "Cierre": 6 }
     }
   ],
   "consultas": ["ConsultaA", "ConsultaB", "ConsultaC", "ConsultaD"],
@@ -142,8 +155,8 @@ Contiene todos los parámetros para configurar el escenario de planificación (e
   "personal": { "MG": 2, "LB": 2, "AC": 2 },
   "cargos": {
     "AC": ["Admision", "Cierre"],
-    "MG": ["Historia", "Prueba_Medica"],
-    "LB": ["Laboratorio", "Entrega_Resultados"]
+    "MG": ["Historia", "Prueba_Medica", "Revisión_Medica"],
+    "LB": ["Laboratorio", "Entrega_Resultados", "Analisis_Sangre"]
   }
 }
 ```
