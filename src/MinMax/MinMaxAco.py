@@ -133,7 +133,7 @@ class MinMaxACO(ACO):
         self.execution_time = time.time() - start_time
         return self.best_solution, self.best_cost
 
-    def plot_convergence(self):
+    def plot_convergence(self, output_dir='/plots/'):
         """
         Genera y guarda un gráfico de la convergencia del algoritmo MinMaxACO.
         """
@@ -157,8 +157,9 @@ class MinMaxACO(ACO):
         plt.title('Convergencia Min-Max ACO')
         plt.grid(True)
 
-        plot_dir = "/app/plots"
-        os.makedirs(plot_dir, exist_ok=True)
+        plot_dir = output_dir
+        if not os.path.isdir(plot_dir):
+            os.makedirs(plot_dir, exist_ok=True)
 
         try:
             filepath = os.path.join(plot_dir, "convergencia_MinMaxACO.png")

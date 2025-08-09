@@ -3,6 +3,7 @@ from MinMax.MinMaxGraph import MinMaxGraph
 from utils.generate_graph_components import generar_nodos, generar_aristas, construir_mapeo_paciente_info
 from utils.plot_gantt_solution import plot_gantt_chart
 
+import random
 import json
 import os
 from collections import defaultdict
@@ -150,8 +151,12 @@ def get_aco_params(params_path='aco_params.json'):
         raise Exception(f"Error cargando parámetros de ACO: {e}")
 
 if __name__ == "__main__":
-    config_file_path = '/app/src/MinMax/config.json'
-    aco_params_path = '/app/src/MinMax/params_config.json'
+    config_file_path = os.environ.get('ACO_CONFIG_PATH', 'src/MinMax/config.json')
+    aco_params_path = os.environ.get('ACO_PARAMS_PATH', 'src/MinMax/params_config.json')
+    plot_dir_path = os.environ.get('PLOT_DIR_PATH', 'plots/')
+    gantt_filename = os.environ.get('GANTT_FILENAME', 'gantt_plotly_schedule_MinMax.png')
+    gantt_filepath = os.path.join(plot_dir_path, gantt_filename)
+    random.seed(777) # Para que los resultados sean reproducibles
     config_data = get_configuration(config_file_path)
     aco_params = get_aco_params(aco_params_path)
 
@@ -227,7 +232,7 @@ if __name__ == "__main__":
 
     print("Ejecutando MinMaxACO...")
     best_solution, best_cost = aco_minmax.run()
-    aco_minmax.plot_convergence()
+    aco_minmax.plot_convergence(output_dir=plot_dir_path)
 
     if best_solution:
         # Agrupar asignaciones por paciente
@@ -307,9 +312,7 @@ if __name__ == "__main__":
                 except (ValueError, TypeError, IndexError) as e:
                     raise Exception(f"Error calculando horas para Gantt: {e}.")
 
-                gantt_output_dir = "/app/plots/"
-                os.makedirs(gantt_output_dir, exist_ok=True)
-                gantt_filepath = os.path.join(gantt_output_dir, "gantt_plotly_schedule_MinMaxACO.png")
+                os.makedirs(plot_dir_path, exist_ok=True)
 
                 plot_gantt_chart(
                     best_solution=best_solution,

@@ -8,6 +8,7 @@ import os
 from collections import defaultdict
 from datetime import datetime, timedelta, time
 from typing import List
+import random
 
 def get_configuration(config_path='/app/src/Standard/config.json'):
     """
@@ -147,9 +148,12 @@ def get_aco_params(params_path='aco_params.json'):
         raise Exception(f"Error cargando parámetros de ACO: {e}")
 
 if __name__ == "__main__":
-    config_file_path = '/app/src/Standard/config.json'
-    aco_params_path = '/app/src/Standard/params_config.json'
-
+    config_file_path = os.environ.get('ACO_CONFIG_PATH', 'src/Standard/config.json')
+    aco_params_path = os.environ.get('ACO_PARAMS_PATH', 'src/Standard/params_config.json')
+    plot_dir_path = os.environ.get('PLOT_DIR_PATH', 'plots/')
+    gantt_filename = os.environ.get('GANTT_FILENAME', 'gantt_plotly_schedule.png')
+    gantt_filepath = os.path.join(plot_dir_path, gantt_filename)
+    random.seed(777) # Para que los resultados sean reproducibles
     config_data = get_configuration(config_file_path)
     aco_params = get_aco_params(aco_params_path)
 
@@ -216,7 +220,7 @@ if __name__ == "__main__":
     
     print("Ejecutando ACO...")
     best_solution, best_cost = aco.run()
-    aco.plot_convergence()
+    aco.plot_convergence(output_dir=plot_dir_path)
     
     
     if best_solution:
@@ -296,10 +300,7 @@ if __name__ == "__main__":
                 except (ValueError, TypeError, IndexError) as e:
                     raise Exception(f"Error calculando horas para Gantt: {e}.")
 
-                gantt_output_dir = "/app/plots/"
-                os.makedirs(gantt_output_dir, exist_ok=True)
-                gantt_filepath = os.path.join(gantt_output_dir, "gantt_plotly_schedule.png")
-
+                os.makedirs(plot_dir_path, exist_ok=True)
                 plot_gantt_chart(
                     best_solution=best_solution, 
                     fases_duration=fases_duration_para_gantt,
